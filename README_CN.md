@@ -4,7 +4,7 @@
 **原仓库: [LivePortrait](https://github.com/KwaiVGI/LivePortrait)，感谢作者的分享**
 
 **新增功能：**
-* 通过TensorRT实现在RTX 3090显卡上**实时**运行LivePortrait，速度达到 30+ FPS.
+* 通过TensorRT实现在RTX 3090显卡上**实时**运行LivePortrait，速度达到 30+ FPS. 这个速度是实测渲染出一帧的速度，而不仅仅是模型的推理时间。
 * 实现将LivePortrait模型转为Onnx模型，使用onnxruntime-gpu在RTX 3090上的推理速度约为 70ms/帧（～12 FPS），方便跨平台的部署。
 * 无缝支持原生的gradio app, 速度快了好几倍，同时支持对多张人脸的同时推理，一些效果可以看：[pr105](https://github.com/KwaiVGI/LivePortrait/pull/105)
 * 对代码结构进行了重构，不再依赖pytorch，所有的模型用onnx或tensorrt推理。
@@ -18,6 +18,7 @@
 ### 环境安装
 * `pip install -r requirements.txt`
 * 缺啥你再自己安装吧
+* **以下教程只在Linux验证过，windows推荐使用docker或docker-compose.**
 
 ### Onnxruntime 推理
 * 首先从[这里](https://huggingface.co/warmshao/FasterLivePortrait)下载我转换好的模型onnx文件，放在`checkpoints`文件夹下。
