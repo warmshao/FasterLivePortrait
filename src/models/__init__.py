@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2024/7/13 17:09
-# @Author  : shaoguowen
+# @Author  : wenshao
 # @Email   : wenshaoguo1026@gmail.com
-# @Project : RealTimeLivePortrait
+# @Project : FasterLivePortrait
 # @FileName: __init__.py.py
 
-from .warping_model import WarpingModel
-from .spade_gen_model import SpadeGenModel
+from .warping_spade_model import WarpingSpadeModel
 from .motion_extractor_model import MotionExtractorModel
 from .appearance_feature_extractor_model import AppearanceFeatureExtractorModel
 from .landmark_model import LandmarkModel
+from .face_analysis_model import FaceAnalysisModel
+from .stitching_model import StitchingModel

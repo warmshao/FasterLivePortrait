@@ -1,21 +1,19 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2024/7/13 21:21
-# @Author  : shaoguowen
-# @Email   : wenshaoguo1026@gmail.com
-# @Project : RealTimeLivePortrait
-# @FileName: motion_extractor_model.py
-import pdb
+# @Author  : wenshao
+# @Email   : wenshaoguo0611@gmail.com
+# @Project : FasterLivePortrait
+# @FileName: stitching_model.py
 
 from .base_model import BaseModel
 
 
-class AppearanceFeatureExtractorModel(BaseModel):
+class StitchingModel(BaseModel):
     """
-    AppearanceFeatureExtractorModel
+    StitchingModel
     """
 
     def __init__(self, **kwargs):
-        super(AppearanceFeatureExtractorModel, self).__init__(**kwargs)
+        super(StitchingModel, self).__init__(**kwargs)
         self.predict_type = kwargs.get("predict_type", "trt")
         print(self.predict_type)
 

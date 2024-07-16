@@ -56,6 +56,17 @@ class EngineBuilder:
         self.config = self.builder.create_builder_config()
         self.config.max_workspace_size = 12 * (2 ** 30)  # 12 GB
 
+        profile = self.builder.create_optimization_profile()
+
+        # for face_2dpose_106.onnx
+        profile.set_shape("data", (1, 3, 192, 192), (1, 3, 192, 192), (1, 3, 192, 192))
+        # for retinaface_det.onnx
+        profile.set_shape("input.1", (1, 3, 512, 512), (1, 3, 512, 512), (1, 3, 512, 512))
+
+        self.config.add_optimization_profile(profile)
+        # 严格类型约束
+        self.config.set_flag(trt.BuilderFlag.STRICT_TYPES)
+
         self.batch_size = None
         self.network = None
         self.parser = None
@@ -90,8 +101,8 @@ class EngineBuilder:
             log.info("Input '{}' with shape {} and dtype {}".format(input.name, input.shape, input.dtype))
         for output in outputs:
             log.info("Output '{}' with shape {} and dtype {}".format(output.name, output.shape, output.dtype))
-        assert self.batch_size > 0
-        self.builder.max_batch_size = self.batch_size
+        # assert self.batch_size > 0
+        self.builder.max_batch_size = 1
 
     def create_engine(
             self,

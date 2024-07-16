@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2022/12/30 8:57
-# @Author  : shaoguowen
+# @Author  : wenshao
 # @Email   : wenshaoguo1026@gmail.com
-# @Project : RealTimeLivePortrait
+# @Project : FasterLivePortrait
 # @FileName: base_model.py
 
 import copy

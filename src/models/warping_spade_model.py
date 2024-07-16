@@ -1,24 +1,20 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2022/12/30 9:01
-# @Author  : shaoguowen
+# @Author  : wenshao
 # @Email   : wenshaoguo1026@gmail.com
-# @Project : MetaMoCap
-# @FileName: yolo_human_detect_model.py
+# @Project : FasterLivePortrait
+# @FileName: warping_spade_model.py
 import pdb
-
-import cv2
 import numpy as np
-
 from .base_model import BaseModel
 
 
-class WarpingModel(BaseModel):
+class WarpingSpadeModel(BaseModel):
     """
-    Warping Model
+    WarpingSpade Model
     """
 
     def __init__(self, **kwargs):
-        super(WarpingModel, self).__init__(**kwargs)
+        super(WarpingSpadeModel, self).__init__(**kwargs)
         self.predict_type = kwargs.get("predict_type", "trt")
         print(self.predict_type)
 
@@ -27,11 +23,11 @@ class WarpingModel(BaseModel):
         return feature_3d, kp_source, kp_driving
 
     def output_process(self, *data):
-        if self.predict_type == "trt":
-            deformation, occlusion_map, out = data
-        else:
-            occlusion_map, deformation, out = data
-        return occlusion_map, deformation, out
+        out = data[0]
+        out = np.transpose(out, [0, 2, 3, 1])  # 1x3xHxW -> 1xHxWx3
+        out = np.clip(out, 0, 1)  # clip to 0~1
+        out = np.clip(out * 255, 0, 255).astype(np.uint8)
+        return out[0]
 
     def predict(self, *data):
         feature_3d, kp_source, kp_driving = self.input_process(*data)

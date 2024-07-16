@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2022/12/29 13:21
-# @Author  : shaoguowen
+# @Author  : wenshao
 # @Email   : wenshaoguo1026@gmail.com
-# @Project : RealTimeLivePortrait
+# @Project : FasterLivePortrait
 # @FileName: predictor.py
 import pdb
 import threading
@@ -10,15 +9,17 @@ import os
 
 import numpy as np
 import onnxruntime
-import tensorrt as trt
-import pycuda.driver as cuda
-import torch.cuda
-import ctypes
+try:
+    import tensorrt as trt
+    import ctypes
+except ModuleNotFoundError:
+    print("No TensorRT Found")
 
 # Use autoprimaryctx if available (pycuda >= 2021.1) to
 # prevent issues with other modules that rely on the primary
 # device context.
 try:
+    import pycuda.driver as cuda
     import pycuda.autoprimaryctx
 except ModuleNotFoundError:
     import pycuda.autoinit
@@ -40,10 +41,16 @@ class TensorRTPredictor:
         """
         :param engine_path: The path to the serialized engine to load from disk.
         """
+        if kwargs.get("cuda_ctx", None) is None:
+            cuda.init()
+            self.cfx = cuda.Device(0).make_context()
+        else:
+            self.cfx = kwargs.get("cuda_ctx")
         # Load TRT engine
         self.logger = trt.Logger(trt.Logger.ERROR)
         load_plugins(self.logger)
         engine_path = kwargs.get("model_path", None)
+        self.debug = kwargs.get("debug", False)
         assert engine_path, f"model:{engine_path} must exist!"
         with open(engine_path, "rb") as f, trt.Runtime(self.logger) as runtime:
             assert runtime
@@ -107,7 +114,8 @@ class TensorRTPredictor:
         specs = []
         for i, o in enumerate(self.inputs):
             specs.append((o["name"], o['shape'], o['dtype']))
-            print(f"trt input {i} -> {self.inputs[i]['name']}")
+            if self.debug:
+                print(f"trt input {i} -> {self.inputs[i]['name']}")
         return specs
 
     def output_spec(self):
@@ -118,7 +126,8 @@ class TensorRTPredictor:
         specs = []
         for i, o in enumerate(self.outputs):
             specs.append((o["name"], o['shape'], o['dtype']))
-            print(f"trt output {i} -> {o['name']}")
+            if self.debug:
+                print(f"trt output {i} -> {o['name']}")
         return specs
 
     def predict(self, *data):
@@ -127,6 +136,7 @@ class TensorRTPredictor:
         :param data: A list of inputs as numpy arrays.
         :return A list of outputs as numpy arrays.
         """
+        self.cfx.push()
         # Copy I/O and Execute
         for i in range(len(data)):
             data_ = np.ascontiguousarray(data[i], self.inputs[i]["dtype"])
@@ -134,6 +144,7 @@ class TensorRTPredictor:
         self.context.execute_v2(self.allocations)
         for o in range(len(self.outputs)):
             cuda.memcpy_dtoh(self.outputs[o]['host_allocation'], self.outputs[o]['allocation'])
+        self.cfx.pop()
         return [o['host_allocation'] for o in self.outputs]
 
     def __del__(self):
@@ -142,6 +153,13 @@ class TensorRTPredictor:
         del self.inputs
         del self.outputs
         del self.allocations
+
+        try:
+            if self.cfx is not None:
+                self.cfx.pop()
+                del self.cfx
+        except Exception as e:
+            print(e.__str__())
 
 
 class OnnxRuntimePredictor:
@@ -152,21 +170,18 @@ class OnnxRuntimePredictor:
     def __init__(self, **kwargs):
         model_path = kwargs.get("model_path", "")  # 用模型路径区分是否是一样的实例
         assert os.path.exists(model_path), "model path must exist!"
-        print("loading ort model:{}".format(model_path))
-
-        if kwargs.get("use_cuda", False) and torch.cuda.is_available():
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-        else:
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+        # print("loading ort model:{}".format(model_path))
+        self.debug = kwargs.get("debug", False)
+        providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
 
         print(f"OnnxRuntime use {providers}")
         opts = onnxruntime.SessionOptions()
-        opts.inter_op_num_threads = kwargs.get("num_threads", 4)
-        opts.intra_op_num_threads = kwargs.get("num_threads", 4)
-        opts.log_severity_level = 1
+        # opts.inter_op_num_threads = kwargs.get("num_threads", 4)
+        # opts.intra_op_num_threads = kwargs.get("num_threads", 4)
+        opts.log_severity_level = 3
         self.onnx_model = onnxruntime.InferenceSession(model_path, providers=providers, sess_options=opts)
-        self.onnx_inputs = self.onnx_model.get_inputs()
-        self.onnx_outputs = self.onnx_model.get_outputs()
+        self.inputs = self.onnx_model.get_inputs()
+        self.outputs = self.onnx_model.get_outputs()
 
     def input_spec(self):
         """
@@ -174,9 +189,10 @@ class OnnxRuntimePredictor:
         :return: Two items, the shape of the input tensor and its (numpy) datatype.
         """
         specs = []
-        for i, o in enumerate(self.onnx_inputs):
+        for i, o in enumerate(self.inputs):
             specs.append((o.name, o.shape, o.type))
-            print(f"ort {i} -> {o.name}")
+            if self.debug:
+                print(f"ort {i} -> {o.name}")
         return specs
 
     def output_spec(self):
@@ -185,15 +201,16 @@ class OnnxRuntimePredictor:
         :return: A list with two items per element, the shape and (numpy) datatype of each output tensor.
         """
         specs = []
-        for i, o in enumerate(self.onnx_outputs):
+        for i, o in enumerate(self.outputs):
             specs.append((o.name, o.shape, o.type))
-            print(f"ort output {i} -> {o.name}")
+            if self.debug:
+                print(f"ort output {i} -> {o.name}")
         return specs
 
     def predict(self, *data):
         input_feeds = {}
         for i in range(len(data)):
-            input_feeds[self.onnx_inputs[i].name] = data[i].astype(np.float32)
+            input_feeds[self.inputs[i].name] = data[i].astype(np.float32)
 
         results = self.onnx_model.run(None, input_feeds)
         return results

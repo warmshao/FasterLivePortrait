@@ -1,0 +1,9 @@
+ffmpeg-python
+omegaconf
+onnx
+pycuda
+numpy
+opencv-python
+gradio
+scikit-image
+insightface
