@@ -11,6 +11,8 @@
 
 **If you find this project useful, please give it a star ❤️❤️**
 
+<video src="https://github.com/KwaiVGI/LivePortrait/assets/138360003/c0c8de4f-6a6f-43fa-89f9-168ff3f150ef" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
+
 **Note: The above results were tested on Linux + RTX3090**
 
 ### Environment Setup
@@ -18,7 +20,7 @@
 * Install any additional missing dependencies as needed
 
 ### Onnxruntime Inference
-* First, download the converted onnx model files from this address and place them in the `checkpoints` folder.
+* First, download the converted onnx model files from [this](https://huggingface.co/warmshao/FasterLivePortrait) and place them in the `checkpoints` folder.
 * If you want to use onnxruntime cpu inference, simply `pip install onnxruntime`. However, cpu inference is extremely slow and not recommended. Use GPU if possible.
 * The latest onnxruntime-gpu still doesn't support grid_sample cuda, but I found a branch that supports it. Follow these steps to install `onnxruntime-gpu` from source:
   * `git clone https://github.com/microsoft/onnxruntime`
@@ -81,4 +83,5 @@
 
 ### 关于我
 Follow my shipinhao channel for continuous updates on my AIGC content. Feel free to message me for collaboration opportunities.
+
 <img src="assets/shipinhao.jpg" alt="视频号" width="300" height="350">

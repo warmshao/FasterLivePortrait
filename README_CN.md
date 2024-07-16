@@ -11,6 +11,8 @@
 
 **如果你觉得这个项目有用，帮我点个star吧❤️❤️**
 
+<video src="https://github.com/KwaiVGI/LivePortrait/assets/138360003/c0c8de4f-6a6f-43fa-89f9-168ff3f150ef" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
+
 **注意：以上结果是在Linux+RTX3090上做的测试**
 
 ### 环境安装
@@ -18,7 +20,7 @@
 * 缺啥你再自己安装吧
 
 ### Onnxruntime 推理
-* 首先从这个地址下载我转换好的模型onnx文件，放在`checkpoints`文件夹下。
+* 首先从[这里](https://huggingface.co/warmshao/FasterLivePortrait)下载我转换好的模型onnx文件，放在`checkpoints`文件夹下。
 * 如果你要用onnxruntime cpu推理的话，直接`pip install onnxruntime`即可，但是cpu推理超级慢，这里不推荐。有条件还是得用GPU。
 * 但是最新的onnxruntime-gpu仍然无法支持grid_sample cuda，好在我看到一位大佬在分支上支持了，按照以下步骤源码安装`onnxruntime-gpu`:
   * `git clone https://github.com/microsoft/onnxruntime`
@@ -84,5 +86,6 @@
 
 ### 关于我
 欢迎关注我的视频号，会持续分享我做的AIGC的内容。有合作需求欢迎私信。
+
 <img src="assets/shipinhao.jpg" alt="视频号" width="300" height="350">
 
