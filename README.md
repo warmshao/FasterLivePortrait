@@ -4,7 +4,7 @@
 **Original repository: [LivePortrait](https://github.com/KwaiVGI/LivePortrait), thanks to the authors for sharing**
 
 **New features:**
-* Achieved real-time running of LivePortrait on RTX 3090 GPU using TensorRT, reaching speeds of 30+ FPS.
+* Achieved real-time running of LivePortrait on RTX 3090 GPU using TensorRT, reaching speeds of 30+ FPS. This is the speed for rendering a single frame, including pre- and post-processing, not just the model inference speed.
 * Implemented conversion of LivePortrait model to Onnx model, achieving inference speed of about 70ms/frame (~12 FPS) using onnxruntime-gpu on RTX 3090, facilitating cross-platform deployment.
 * Seamless support for native gradio app, with several times faster speed and support for simultaneous inference on multiple faces. Some results can be seen here: [pr105](https://github.com/KwaiVGI/LivePortrait/pull/105)
 * Refactored code structure, no longer dependent on pytorch, all models use onnx or tensorrt for inference.
@@ -18,6 +18,7 @@
 ### Environment Setup
 * `pip install -r requirements.txt`
 * Install any additional missing dependencies as needed
+* **The following tutorial has only been verified on Linux. For Windows, it is recommended to use Docker or Docker Compose.**
 
 ### Onnxruntime Inference
 * First, download the converted onnx model files from [this](https://huggingface.co/warmshao/FasterLivePortrait) and place them in the `checkpoints` folder.
@@ -81,7 +82,7 @@
 * onnxruntime: `python app.py --mode onnx`
 * tensorrt: `python app.py --mode trt`
 
-### 关于我
+### About Me
 Follow my shipinhao channel for continuous updates on my AIGC content. Feel free to message me for collaboration opportunities.
 
 <img src="assets/shipinhao.jpg" alt="视频号" width="300" height="350">
