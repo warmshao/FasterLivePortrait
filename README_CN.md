@@ -26,7 +26,6 @@
   ```shell
   docker run -it --gpus=all \
   --name faster_liveportrait \
-  -v E:\\data:/data \
   -v $FasterLivePortrait_ROOT:/root/FasterLivePortrait \
   --restart=always \
   -p 9870:9870 \
