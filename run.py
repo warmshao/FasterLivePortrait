@@ -19,8 +19,8 @@ from src.utils.utils import video_has_audio
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Faster Live Portrait Pipeline')
-    parser.add_argument('--src_image', required=False, type=str, default="assets/src.jpg", help='source image')
-    parser.add_argument('--dri_video', required=False, type=str, default="assets/d12.mp4", help='driving video')
+    parser.add_argument('--src_image', required=False, type=str, default="assets/examples/source/s12.jpg", help='source image')
+    parser.add_argument('--dri_video', required=False, type=str, default="assets/examples/driving/d14.mp4", help='driving video')
     parser.add_argument('--cfg', required=False, type=str, default="configs/onnx_infer.yaml", help='inference config')
     parser.add_argument('--realtime', action='store_true', help='realtime inference')
     args, unknown = parser.parse_known_args()

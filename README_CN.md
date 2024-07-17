@@ -13,12 +13,32 @@
 
 <video src="https://github.com/KwaiVGI/LivePortrait/assets/138360003/c0c8de4f-6a6f-43fa-89f9-168ff3f150ef" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
-**注意：以上结果是在Linux+RTX3090上做的测试**
+**日志**
+- [x] **2024/07/17:** 增加docker环境的支持，提供可运行的镜像。
+- [ ] Windows的整合包, 支持一键运行
+- [ ] MacOS的整合包, 支持一键运行
 
 ### 环境安装
-* `pip install -r requirements.txt`
-* 缺啥你再自己安装吧
-* **以下教程只在Linux验证过，windows推荐使用docker或docker-compose.**
+* 方式1：Docker(推荐），提供了一个镜像，不用再自己安装onnxruntime-gpu和TensorRT。
+  * 根据自己的系统安装[docker](https://docs.docker.com/desktop/install/windows-install/)
+  * 下载镜像：`docker pull shaoguo/faster_liveportrait:v1`
+  * 执行命令, `$FasterLivePortrait_ROOT`要替换成你下载的FasterLivePortrait在本地的目录:
+  ```shell
+  docker run -it --gpus=all \
+  --name faster_liveportrait \
+  -v E:\\data:/data \
+  -v $FasterLivePortrait_ROOT:/root/FasterLivePortrait \
+  --restart=always \
+  -p 9870:9870 \
+  shaoguo/faster_liveportrait:v1 \
+  /bin/bash
+  ```
+  * 然后可以根据下面Onnxruntime 推理和TensorRT 推理教程进行使用。
+  
+* 方式2：新建一个python虚拟环境，自己安装必要的python包
+  * 请先安装[ffmpeg](https://www.ffmpeg.org/download.html)
+  * `pip install -r requirements.txt`
+  * 再根据以下教程安装onnxruntime-gpu或TensorRT。
 
 ### Onnxruntime 推理
 * 首先从[这里](https://huggingface.co/warmshao/FasterLivePortrait)下载我转换好的模型onnx文件，放在`checkpoints`文件夹下。
@@ -28,14 +48,14 @@
   * `git checkout liqun/ImageDecoder-cuda`. Thanks for liqun's grid_sample with cuda implementation!
   * 运行以下命令编译,cuda_version要改成你自己的:
   ```shell
-  build cmd:
   ./build.sh --parallel \
   --build_shared_lib --use_cuda \
   --cuda_version 11.8 \
   --cuda_home /usr/local/cuda --cudnn_home /usr/local/cuda/ \
   --config Release --build_wheel --skip_tests \
-  --cmake_extra_defines CMAKE_CUDA_ARCHITECTURES="80" \
+  --cmake_extra_defines CMAKE_CUDA_ARCHITECTURES="60;70;75;80;86" \
   --cmake_extra_defines CMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+  --disable_contrib_ops \
   --allow_running_as_root
   ```
   * `pip install build/Linux/Release/dist/onnxruntime_gpu-1.17.0-cp310-cp310-linux_x86_64.whl`就可以了
@@ -84,6 +104,7 @@
 ### Gradio App
 * onnxruntime: `python app.py --mode onnx`
 * tensorrt: `python app.py --mode trt`
+* 默认端口在9870，打开网页：`http://localhost:9870/`
 
 ### 关于我
 欢迎关注我的视频号，会持续分享我做的AIGC的内容。有合作需求欢迎私信。

@@ -13,12 +13,30 @@
 
 <video src="https://github.com/KwaiVGI/LivePortrait/assets/138360003/c0c8de4f-6a6f-43fa-89f9-168ff3f150ef" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
-**Note: The above results were tested on Linux + RTX3090**
+**Changelog**
+- [x] **2024/07/17:** Added support for Docker environment, providing a runnable image.
+- [ ] Windows integration package, supports one-click run
+- [ ] MacOS integration package, supports one-click run
 
 ### Environment Setup
-* `pip install -r requirements.txt`
-* Install any additional missing dependencies as needed
-* **The following tutorial has only been verified on Linux. For Windows, it is recommended to use Docker or Docker Compose.**
+* Option 1: Docker (recommended).A docker image is provided for  eliminating the need to install onnxruntime-gpu and TensorRT manually.
+  * Install [Docker](https://docs.docker.com/desktop/install/windows-install/) according to your system
+  * Download the image: `docker pull shaoguo/faster_liveportrait:v1`
+  * Execute the command, replace `$FasterLivePortrait_ROOT` with the local directory where you downloaded FasterLivePortrait:
+  ```shell
+  docker run -it --gpus=all \
+  --name faster_liveportrait \
+  -v E:\\data:/data \
+  -v $FasterLivePortrait_ROOT:/root/FasterLivePortrait \
+  --restart=always \
+  -p 9870:9870 \
+  shaoguo/faster_liveportrait:v1 \
+  /bin/bash
+  ```
+* Option 2: Create a new Python virtual environment and install the necessary Python packages manually
+  * First, install [ffmpeg](https://www.ffmpeg.org/download.html)
+  * Run `pip install -r requirements.txt`
+  * Then follow the tutorials below to install onnxruntime-gpu or TensorRT.
 
 ### Onnxruntime Inference
 * First, download the converted onnx model files from [this](https://huggingface.co/warmshao/FasterLivePortrait) and place them in the `checkpoints` folder.
@@ -26,15 +44,16 @@
 * The latest onnxruntime-gpu still doesn't support grid_sample cuda, but I found a branch that supports it. Follow these steps to install `onnxruntime-gpu` from source:
   * `git clone https://github.com/microsoft/onnxruntime`
   * `git checkout liqun/ImageDecoder-cuda`. Thanks to liqun for the grid_sample with cuda implementation!
-  * Run the following commands to compile, replacing cuda_version with your own:
+  * Run the following commands to compile
   ```shell
   ./build.sh --parallel \
   --build_shared_lib --use_cuda \
   --cuda_version 11.8 \
   --cuda_home /usr/local/cuda --cudnn_home /usr/local/cuda/ \
   --config Release --build_wheel --skip_tests \
-  --cmake_extra_defines CMAKE_CUDA_ARCHITECTURES="80" \
+  --cmake_extra_defines CMAKE_CUDA_ARCHITECTURES="60;70;75;80;86" \
   --cmake_extra_defines CMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+  --disable_contrib_ops \
   --allow_running_as_root
   ```
   * `pip install build/Linux/Release/dist/onnxruntime_gpu-1.17.0-cp310-cp310-linux_x86_64.whl`
@@ -49,6 +68,7 @@
 * It's assumed that you have already installed TensorRT. If not, please Google for installation instructions. My TensorRT version is 8.6.1. Remember the installation path of TensorRT.
 * Install the grid_sample tensorrt plugin, as the model requires 5d input for grid sample, which is not supported by the native grid_sample operator.
   * `git clone https://github.com/SeanWangJS/grid-sample3d-trt-plugin`
+    * add `include_directories("/usr/local/cuda/include")` in `CMakeLists.txt` if `lib_cuda.h` not found.
   * Modify line 30 in `CMakeLists.txt` to: `set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_ARCHITECTURES "60;70;75;80;86")`
   * `export PATH=/usr/local/cuda/bin:$PATH`
   * `mkdir build && cd build`
@@ -81,6 +101,7 @@
 ### Gradio App
 * onnxruntime: `python app.py --mode onnx`
 * tensorrt: `python app.py --mode trt`
+* The default port is 9870. Open the webpage: `http://localhost:9870/`
 
 ### About Me
 Follow my shipinhao channel for continuous updates on my AIGC content. Feel free to message me for collaboration opportunities.

@@ -325,9 +325,9 @@ def test_stitching_model():
 
 
 if __name__ == '__main__':
-    # test_warping_spade_model()
+    test_warping_spade_model()
     # test_motion_extractor_model()
     # test_landmark_model()
     # test_face_analysis_model()
-    test_appearance_extractor_model()
+    # test_appearance_extractor_model()
     # test_stitching_model()
