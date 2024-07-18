@@ -37,14 +37,14 @@
 * 方式2：新建一个python虚拟环境，自己安装必要的python包
   * 请先安装[ffmpeg](https://www.ffmpeg.org/download.html)
   * `pip install -r requirements.txt`
-  * 再根据以下教程安装onnxruntime-gpu或TensorRT。
+  * 再根据以下教程安装onnxruntime-gpu或TensorRT，注意只有在Linux系统下实验过。
 
 ### Onnxruntime 推理
 * 首先从[这里](https://huggingface.co/warmshao/FasterLivePortrait)下载我转换好的模型onnx文件，放在`checkpoints`文件夹下。
 * (Docker环境可忽略）如果你要用onnxruntime cpu推理的话，直接`pip install onnxruntime`即可，但是cpu推理超级慢。但是最新的onnxruntime-gpu仍然无法支持grid_sample cuda，好在我看到一位大佬在分支上支持了，按照以下步骤源码安装`onnxruntime-gpu`:
   * `git clone https://github.com/microsoft/onnxruntime`
   * `git checkout liqun/ImageDecoder-cuda`. Thanks for liqun's grid_sample with cuda implementation!
-  * 运行以下命令编译,cuda_version要改成你自己的:
+  * 运行以下命令编译,`cuda_version`和`CMAKE_CUDA_ARCHITECTURES`根据自己的机器更改:
   ```shell
   ./build.sh --parallel \
   --build_shared_lib --use_cuda \
