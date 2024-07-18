@@ -9,6 +9,7 @@ import os
 
 import numpy as np
 import onnxruntime
+
 try:
     import tensorrt as trt
     import ctypes
@@ -167,7 +168,7 @@ class OnnxRuntimePredictor:
         assert os.path.exists(model_path), "model path must exist!"
         # print("loading ort model:{}".format(model_path))
         self.debug = kwargs.get("debug", False)
-        providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+        providers = ['CUDAExecutionProvider', 'CoreMLExecutionProvider', 'CPUExecutionProvider']
 
         print(f"OnnxRuntime use {providers}")
         opts = onnxruntime.SessionOptions()
