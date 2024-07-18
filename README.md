@@ -15,7 +15,7 @@
 
 **Changelog**
 - [x] **2024/07/17:** Added support for Docker environment, providing a runnable image.
-- [x] **2024/07/18:** macOS support added. M1/M2 chips are faster, but it's still quite slow 😟
+- [x] **2024/07/18:** macOS support added(No need for Docker, Python is enough). M1/M2 chips are faster, but it's still quite slow 😟
   - Install ffmpeg: `brew install ffmpeg`
   - Set up a Python 3.10 virtual environment. Recommend using [miniforge](https://github.com/conda-forge/miniforge): `conda create -n flip python=3.10 && conda activate flip`
   - Install requirements: `pip install -r requirements_macos.txt`

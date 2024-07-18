@@ -15,7 +15,7 @@
 
 **日志**
 - [x] **2024/07/17:** 增加docker环境的支持，提供可运行的镜像。
-- [x] **2024/07/18:** MacOS支持，M1/M2的速度比较快，但还是很慢😟
+- [x] **2024/07/18:** MacOS支持(不需要Docker，python就可以了），M1/M2的速度比较快，但还是很慢😟
   - 安装ffmpeg: `brew install ffmpeg`
   - 安装python=3.10的虚拟环境，推荐可以用[miniforge](https://github.com/conda-forge/miniforge).`conda create -n flip python=3.10 && conda activate flip`
   - `pip install -r requirements_macos.txt`
