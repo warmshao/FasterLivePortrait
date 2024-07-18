@@ -35,14 +35,14 @@
 * Option 2: Create a new Python virtual environment and install the necessary Python packages manually
   * First, install [ffmpeg](https://www.ffmpeg.org/download.html)
   * Run `pip install -r requirements.txt`
-  * Then follow the tutorials below to install onnxruntime-gpu or TensorRT.
+  * Then follow the tutorials below to install onnxruntime-gpu or TensorRT. Note that this has only been tested on Linux systems.
 
 ### Onnxruntime Inference
 * First, download the converted onnx model files from [this](https://huggingface.co/warmshao/FasterLivePortrait) and place them in the `checkpoints` folder.
-* (ignored using Docker)If you want to use onnxruntime cpu inference, simply `pip install onnxruntime`. However, cpu inference is extremely slow and not recommended. The latest onnxruntime-gpu still doesn't support grid_sample cuda, but I found a branch that supports it. Follow these steps to install `onnxruntime-gpu` from source:
+* (Ignored in Docker)If you want to use onnxruntime cpu inference, simply `pip install onnxruntime`. However, cpu inference is extremely slow and not recommended. The latest onnxruntime-gpu still doesn't support grid_sample cuda, but I found a branch that supports it. Follow these steps to install `onnxruntime-gpu` from source:
   * `git clone https://github.com/microsoft/onnxruntime`
   * `git checkout liqun/ImageDecoder-cuda`. Thanks to liqun for the grid_sample with cuda implementation!
-  * Run the following commands to compile
+  * Run the following commands to compile, changing `cuda_version` and `CMAKE_CUDA_ARCHITECTURES` according to your machine:
   ```shell
   ./build.sh --parallel \
   --build_shared_lib --use_cuda \
@@ -63,8 +63,8 @@
      --cfg configs/onnx_infer.yaml
      ```
 ### TensorRT Inference
-* (ignored using Docker) Install TensorRT. Remember the installation path of [TensorRT](https://developer.nvidia.com/tensorrt).
-* (ignored using Docker) Install the grid_sample TensorRT plugin, as the model uses grid sample that requires 5D input, which is not supported by the native grid_sample operator.
+* (Ignored in Docker) Install TensorRT. Remember the installation path of [TensorRT](https://developer.nvidia.com/tensorrt).
+* (Ignored in Docker) Install the grid_sample TensorRT plugin, as the model uses grid sample that requires 5D input, which is not supported by the native grid_sample operator.
   * `git clone https://github.com/SeanWangJS/grid-sample3d-trt-plugin`
   * Modify line 30 in `CMakeLists.txt` to: `set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_ARCHITECTURES "60;70;75;80;86")`
   * `export PATH=/usr/local/cuda/bin:$PATH`
