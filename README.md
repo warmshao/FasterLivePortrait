@@ -39,8 +39,7 @@
 
 ### Onnxruntime Inference
 * First, download the converted onnx model files from [this](https://huggingface.co/warmshao/FasterLivePortrait) and place them in the `checkpoints` folder.
-* If you want to use onnxruntime cpu inference, simply `pip install onnxruntime`. However, cpu inference is extremely slow and not recommended. Use GPU if possible.
-* The latest onnxruntime-gpu still doesn't support grid_sample cuda, but I found a branch that supports it. Follow these steps to install `onnxruntime-gpu` from source:
+* (ignored using Docker)If you want to use onnxruntime cpu inference, simply `pip install onnxruntime`. However, cpu inference is extremely slow and not recommended. The latest onnxruntime-gpu still doesn't support grid_sample cuda, but I found a branch that supports it. Follow these steps to install `onnxruntime-gpu` from source:
   * `git clone https://github.com/microsoft/onnxruntime`
   * `git checkout liqun/ImageDecoder-cuda`. Thanks to liqun for the grid_sample with cuda implementation!
   * Run the following commands to compile
@@ -64,25 +63,15 @@
      --cfg configs/onnx_infer.yaml
      ```
 ### TensorRT Inference
-* It's assumed that you have already installed TensorRT. If not, please Google for installation instructions. My TensorRT version is 8.6.1. Remember the installation path of TensorRT.
-* Install the grid_sample tensorrt plugin, as the model requires 5d input for grid sample, which is not supported by the native grid_sample operator.
+* (ignored using Docker) Install TensorRT. Remember the installation path of [TensorRT](https://developer.nvidia.com/tensorrt).
+* (ignored using Docker) Install the grid_sample TensorRT plugin, as the model uses grid sample that requires 5D input, which is not supported by the native grid_sample operator.
   * `git clone https://github.com/SeanWangJS/grid-sample3d-trt-plugin`
-    * add `include_directories("/usr/local/cuda/include")` in `CMakeLists.txt` if `lib_cuda.h` not found.
   * Modify line 30 in `CMakeLists.txt` to: `set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_ARCHITECTURES "60;70;75;80;86")`
   * `export PATH=/usr/local/cuda/bin:$PATH`
   * `mkdir build && cd build`
-  * `cmake .. -DTensorRT_ROOT=$TENSORRT_HOME`, replace $TENSORRT_HOME with your TensorRT root directory.
-  * `make`, remember the address of the so file, e.g., `/opt/grid-sample3d-trt-plugin/build/libgrid_sample_3d_plugin.so`
-* Convert onnx models to tensorrt, replace the path in line 35 of `scripts/onnx2trt.py` with your own so path.
-  * warping+spade model: `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/warping_spade-fix.onnx`
-  * landmark model: `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/landmark.onnx`
-  * motion_extractor model (note: this model can only use fp32 to avoid precision overflow): `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/motion_extractor.onnx -p fp32`
-  * face_analysis model: `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/retinaface_det.onnx` and `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/face_2dpose_106.onnx`
-  * appearance_extractor model: `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/appearance_feature_extractor.onnx`
-  * stitching model:
-    * `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/stitching.onnx`
-    * `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/stitching_eye.onnx`
-    * `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/stitching_lip.onnx`
+  * `cmake .. -DTensorRT_ROOT=$TENSORRT_HOME`, replace $TENSORRT_HOME with your own TensorRT root directory.
+  * `make`, remember the address of the .so file, replace `/opt/grid-sample3d-trt-plugin/build/libgrid_sample_3d_plugin.so` in `scripts/onnx2trt.py` and `src/models/predictor.py` with your own .so file path
+* Convert the ONNX model to TensorRT, run `sh scripts/all_onnx2trt.sh`
 * Test the pipeline using tensorrt:
   ```shell
    python run.py \

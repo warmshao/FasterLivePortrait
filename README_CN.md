@@ -41,8 +41,7 @@
 
 ### Onnxruntime 推理
 * 首先从[这里](https://huggingface.co/warmshao/FasterLivePortrait)下载我转换好的模型onnx文件，放在`checkpoints`文件夹下。
-* 如果你要用onnxruntime cpu推理的话，直接`pip install onnxruntime`即可，但是cpu推理超级慢，这里不推荐。有条件还是得用GPU。
-* 但是最新的onnxruntime-gpu仍然无法支持grid_sample cuda，好在我看到一位大佬在分支上支持了，按照以下步骤源码安装`onnxruntime-gpu`:
+* (Docker环境可忽略）如果你要用onnxruntime cpu推理的话，直接`pip install onnxruntime`即可，但是cpu推理超级慢。但是最新的onnxruntime-gpu仍然无法支持grid_sample cuda，好在我看到一位大佬在分支上支持了，按照以下步骤源码安装`onnxruntime-gpu`:
   * `git clone https://github.com/microsoft/onnxruntime`
   * `git checkout liqun/ImageDecoder-cuda`. Thanks for liqun's grid_sample with cuda implementation!
   * 运行以下命令编译,cuda_version要改成你自己的:
@@ -67,24 +66,15 @@
   ```
   
 ### TensorRT 推理
-* 默认你已经安装过TensorRT，如果还没装好，请自行Google安装，不再赘述。我的TensorRT是8.6.1，另外记住TensorRT安装的路径。
-* 安装 grid_sample的tensorrt插件，因为模型用到的grid sample需要有5d的输入,原生的grid_sample 算子不支持。
+* (Docker环境可忽略）安装TensorRT，请记住[TensorRT](https://developer.nvidia.com/tensorrt)安装的路径。
+* (Docker环境可忽略）安装 grid_sample的tensorrt插件，因为模型用到的grid sample需要有5d的输入,原生的grid_sample 算子不支持。
   * `git clone https://github.com/SeanWangJS/grid-sample3d-trt-plugin`
   * 修改`CMakeLists.txt`中第30行为:`set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_ARCHITECTURES "60;70;75;80;86")`
   * `export PATH=/usr/local/cuda/bin:$PATH`
   * `mkdir build && cd build`
   * `cmake .. -DTensorRT_ROOT=$TENSORRT_HOME`,$TENSORRT_HOME 替换成你自己TensorRT的根目录。
-  * `make`，记住so文件的地址，比如我的是在：`/opt/grid-sample3d-trt-plugin/build/libgrid_sample_3d_plugin.so`
-* 将onnx模型转为tensorrt，将`scripts/onnx2trt.py`里第35行路径替换成自己的so路径。
-  * warping+spade model：`python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/warping_spade-fix.onnx`
-  * landmark model: `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/landmark.onnx`
-  * motion_extractor model, 注意这个模型只能用fp32, 不然会遇到精度溢出的问题：`python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/motion_extractor.onnx -p fp32`
-  * face_analysis model: `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/retinaface_det.onnx` 和 `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/face_2dpose_106.onnx`
-  * appearance_extractor model: ` python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/appearance_feature_extractor.onnx`
-  * stitching model:
-    * `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/stitching.onnx`
-    * `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/stitching_eye.onnx`
-    * `python scripts/onnx2trt.py -o ./checkpoints/liveportrait_onnx/stitching_lip.onnx`
+  * `make`，记住so文件的地址，将`scripts/onnx2trt.py`和`src/models/predictor.py`里`/opt/grid-sample3d-trt-plugin/build/libgrid_sample_3d_plugin.so`替换成自己的so路径
+* 将onnx模型转为tensorrt，运行`sh scripts/all_onnx2trt.sh`
 * 用tensorrt测试pipeline：
   ```shell
    python run.py \
