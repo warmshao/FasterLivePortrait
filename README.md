@@ -11,12 +11,20 @@
 
 **If you find this project useful, please give it a star ❤️❤️**
 
-<video src="https://github.com/KwaiVGI/LivePortrait/assets/138360003/c0c8de4f-6a6f-43fa-89f9-168ff3f150ef" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
+<video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **Changelog**
 - [x] **2024/07/17:** Added support for Docker environment, providing a runnable image.
+- [x] **2024/07/18:** macOS support added. M1/M2 chips are faster, but it's still quite slow 😟
+  - Install ffmpeg: `brew install ffmpeg`
+  - Set up a Python 3.10 virtual environment. Recommend using [miniforge](https://github.com/conda-forge/miniforge): `conda create -n flip python=3.10 && conda activate flip`
+  - Install requirements: `pip install -r requirements_macos.txt`
+  - Download ONNX files: `huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`
+  - Install onnxruntime:
+    - For macOS Intel: `pip install onnxruntime`
+    - For macOS M1/M2: `pip install checkpoints/liveportrait_onnx/onnxruntime_silicon-1.17.0-cp310-cp310-macosx_14_0_arm64.whl`
+  - Test: `python app.py --mode onnx`
 - [ ] Windows integration package, supports one-click run
-- [ ] MacOS integration package, supports one-click run
 
 ### Environment Setup
 * Option 1: Docker (recommended).A docker image is provided for  eliminating the need to install onnxruntime-gpu and TensorRT manually.
@@ -82,7 +90,7 @@
   ```shell
    python run.py \
    --src_image assets/examples/source/s10.jpg \
-   --dri_video assets/examples/driving/d14.mp4 \
+   --dri_video 0 \
    --cfg configs/trt_infer.yaml \
    --realtime
   ```

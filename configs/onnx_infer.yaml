@@ -15,8 +15,8 @@ models:
     name: "FaceAnalysisModel"
     predict_type: "ort"
     model_path:
-      - "./checkpoints/liveportrait_onnx/retinaface_det.onnx"
-      - "./checkpoints/liveportrait_onnx/face_2dpose_106.onnx"
+      - "./checkpoints/liveportrait_onnx/retinaface_det_static.onnx"
+      - "./checkpoints/liveportrait_onnx/face_2dpose_106_static.onnx"
   app_feat_extractor:
     name: "AppearanceFeatureExtractorModel"
     predict_type: "ort"

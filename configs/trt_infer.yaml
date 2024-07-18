@@ -15,8 +15,8 @@ models:
     name: "FaceAnalysisModel"
     predict_type: "trt"
     model_path:
-      - "./checkpoints/liveportrait_onnx/retinaface_det.trt"
-      - "./checkpoints/liveportrait_onnx/face_2dpose_106.trt"
+      - "./checkpoints/liveportrait_onnx/retinaface_det_static.trt"
+      - "./checkpoints/liveportrait_onnx/face_2dpose_106_static.trt"
   app_feat_extractor:
     name: "AppearanceFeatureExtractorModel"
     predict_type: "trt"

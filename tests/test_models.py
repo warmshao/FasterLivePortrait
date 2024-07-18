@@ -236,16 +236,16 @@ def test_face_analysis_model():
     # onnx 模型加载
     onnx_kwargs = dict(
         predict_type="ort",
-        model_path=["./checkpoints/liveportrait_onnx/retinaface_det.onnx",
-                    "./checkpoints/liveportrait_onnx/face_2dpose_106.onnx"],
+        model_path=["./checkpoints/liveportrait_onnx/retinaface_det_static.onnx",
+                    "./checkpoints/liveportrait_onnx/face_2dpose_106_static.onnx"],
     )
     onnx_model = FaceAnalysisModel(**onnx_kwargs)
 
     # tensorrt 模型加载
     trt_kwargs = dict(
         predict_type="trt",
-        model_path=["./checkpoints/liveportrait_onnx/retinaface_det.trt",
-                    "./checkpoints/liveportrait_onnx/face_2dpose_106.trt"],
+        model_path=["./checkpoints/liveportrait_onnx/retinaface_det_static.trt",
+                    "./checkpoints/liveportrait_onnx/face_2dpose_106_static.trt"],
     )
 
     trt_model = FaceAnalysisModel(**trt_kwargs)
@@ -325,9 +325,9 @@ def test_stitching_model():
 
 
 if __name__ == '__main__':
-    test_warping_spade_model()
+    # test_warping_spade_model()
     # test_motion_extractor_model()
     # test_landmark_model()
-    # test_face_analysis_model()
+    test_face_analysis_model()
     # test_appearance_extractor_model()
     # test_stitching_model()
