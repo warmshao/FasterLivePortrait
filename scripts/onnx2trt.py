@@ -59,9 +59,9 @@ class EngineBuilder:
         profile = self.builder.create_optimization_profile()
 
         # for face_2dpose_106.onnx
-        profile.set_shape("data", (1, 3, 192, 192), (1, 3, 192, 192), (1, 3, 192, 192))
+        # profile.set_shape("data", (1, 3, 192, 192), (1, 3, 192, 192), (1, 3, 192, 192))
         # for retinaface_det.onnx
-        profile.set_shape("input.1", (1, 3, 512, 512), (1, 3, 512, 512), (1, 3, 512, 512))
+        # profile.set_shape("input.1", (1, 3, 512, 512), (1, 3, 512, 512), (1, 3, 512, 512))
 
         self.config.add_optimization_profile(profile)
         # 严格类型约束

@@ -11,12 +11,14 @@
 
 **如果你觉得这个项目有用，帮我点个star吧❤️❤️**
 
-<video src="https://github.com/KwaiVGI/LivePortrait/assets/138360003/c0c8de4f-6a6f-43fa-89f9-168ff3f150ef" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
+<video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **日志**
 - [x] **2024/07/17:** 增加docker环境的支持，提供可运行的镜像。
+- [x] **2024/07/18:** MacOS支持，M1/M2的速度比较快，但整体还是很慢😟
+  - 发
 - [ ] Windows的整合包, 支持一键运行
-- [ ] MacOS的整合包, 支持一键运行
+
 
 ### 环境安装
 * 方式1：Docker(推荐），提供了一个镜像，不用再自己安装onnxruntime-gpu和TensorRT。
@@ -86,7 +88,7 @@
   ```shell
    python run.py \
    --src_image assets/examples/source/s10.jpg \
-   --dri_video assets/examples/driving/d14.mp4 \
+   --dri_video 0 \
    --cfg configs/trt_infer.yaml \
    --realtime
   ```

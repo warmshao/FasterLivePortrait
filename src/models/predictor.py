@@ -22,14 +22,7 @@ try:
     import pycuda.driver as cuda
     import pycuda.autoprimaryctx
 except ModuleNotFoundError:
-    import pycuda.autoinit
-
-
-def load_plugins(logger: trt.Logger):
-    # 加载插件库
-    ctypes.CDLL("/opt/grid-sample3d-trt-plugin/build/libgrid_sample_3d_plugin.so", mode=ctypes.RTLD_GLOBAL)
-    # 初始化TensorRT的插件库
-    trt.init_libnvinfer_plugins(logger, "")
+    print("No PyCUDA Found")
 
 
 class TensorRTPredictor:
@@ -48,7 +41,9 @@ class TensorRTPredictor:
             self.cfx = kwargs.get("cuda_ctx")
         # Load TRT engine
         self.logger = trt.Logger(trt.Logger.ERROR)
-        load_plugins(self.logger)
+        # TODO: set the .so file in global path
+        ctypes.CDLL("/opt/grid-sample3d-trt-plugin/build/libgrid_sample_3d_plugin.so", mode=ctypes.RTLD_GLOBAL)
+        trt.init_libnvinfer_plugins(self.logger, "")
         engine_path = kwargs.get("model_path", None)
         self.debug = kwargs.get("debug", False)
         assert engine_path, f"model:{engine_path} must exist!"

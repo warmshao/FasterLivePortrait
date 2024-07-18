@@ -11,7 +11,7 @@
 
 **If you find this project useful, please give it a star ❤️❤️**
 
-<video src="https://github.com/KwaiVGI/LivePortrait/assets/138360003/c0c8de4f-6a6f-43fa-89f9-168ff3f150ef" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
+<video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **Changelog**
 - [x] **2024/07/17:** Added support for Docker environment, providing a runnable image.
@@ -82,7 +82,7 @@
   ```shell
    python run.py \
    --src_image assets/examples/source/s10.jpg \
-   --dri_video assets/examples/driving/d14.mp4 \
+   --dri_video 0 \
    --cfg configs/trt_infer.yaml \
    --realtime
   ```
