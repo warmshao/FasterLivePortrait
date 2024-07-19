@@ -20,9 +20,6 @@
   - Set up a Python 3.10 virtual environment. Recommend using [miniforge](https://github.com/conda-forge/miniforge): `conda create -n flip python=3.10 && conda activate flip`
   - Install requirements: `pip install -r requirements_macos.txt`
   - Download ONNX files: `huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`
-  - Install onnxruntime:
-    - For macOS Intel: `pip install onnxruntime`
-    - For macOS M1/M2: `pip install checkpoints/liveportrait_onnx/onnxruntime_silicon-1.17.0-cp310-cp310-macosx_14_0_arm64.whl`
   - Test: `python app.py --mode onnx`
 - [ ] Windows integration package, supports one-click run
 
