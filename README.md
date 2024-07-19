@@ -40,13 +40,13 @@
   shaoguo/faster_liveportrait:v1 \
   /bin/bash
   ```
-* Option 2: Create a new Python virtual environment and install the necessary Python packages manually
+* Option 2: Create a new Python virtual environment and install the necessary Python packages manually.
   * First, install [ffmpeg](https://www.ffmpeg.org/download.html)
   * Run `pip install -r requirements.txt`
   * Then follow the tutorials below to install onnxruntime-gpu or TensorRT. Note that this has only been tested on Linux systems.
 
 ### Onnxruntime Inference
-* First, download the converted onnx model files from [this](https://huggingface.co/warmshao/FasterLivePortrait) and place them in the `checkpoints` folder.
+* First, download the converted onnx model files:`huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`.
 * (Ignored in Docker)If you want to use onnxruntime cpu inference, simply `pip install onnxruntime`. However, cpu inference is extremely slow and not recommended. The latest onnxruntime-gpu still doesn't support grid_sample cuda, but I found a branch that supports it. Follow these steps to install `onnxruntime-gpu` from source:
   * `git clone https://github.com/microsoft/onnxruntime`
   * `git checkout liqun/ImageDecoder-cuda`. Thanks to liqun for the grid_sample with cuda implementation!
@@ -79,7 +79,7 @@
   * `mkdir build && cd build`
   * `cmake .. -DTensorRT_ROOT=$TENSORRT_HOME`, replace $TENSORRT_HOME with your own TensorRT root directory.
   * `make`, remember the address of the .so file, replace `/opt/grid-sample3d-trt-plugin/build/libgrid_sample_3d_plugin.so` in `scripts/onnx2trt.py` and `src/models/predictor.py` with your own .so file path
-* Convert the ONNX model to TensorRT, run `sh scripts/all_onnx2trt.sh`
+* Download ONNX model files:`huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`. Convert all ONNX models to TensorRT, run `sh scripts/all_onnx2trt.sh`
 * Test the pipeline using tensorrt:
   ```shell
    python run.py \
