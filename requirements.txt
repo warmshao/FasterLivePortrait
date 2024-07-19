@@ -7,3 +7,4 @@ opencv-python
 gradio
 scikit-image
 insightface
+huggingface_hub[cli]

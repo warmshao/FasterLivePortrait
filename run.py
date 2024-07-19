@@ -19,13 +19,17 @@ from src.utils.utils import video_has_audio
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Faster Live Portrait Pipeline')
-    parser.add_argument('--src_image', required=False, type=str, default="assets/examples/source/s12.jpg", help='source image')
-    parser.add_argument('--dri_video', required=False, type=str, default="assets/examples/driving/d14.mp4", help='driving video')
+    parser.add_argument('--src_image', required=False, type=str, default="assets/examples/source/s12.jpg",
+                        help='source image')
+    parser.add_argument('--dri_video', required=False, type=str, default="assets/examples/driving/d14.mp4",
+                        help='driving video')
     parser.add_argument('--cfg', required=False, type=str, default="configs/onnx_infer.yaml", help='inference config')
     parser.add_argument('--realtime', action='store_true', help='realtime inference')
     args, unknown = parser.parse_known_args()
 
     infer_cfg = OmegaConf.load(args.cfg)
+    if args.realtime:
+        infer_cfg.infer_params.flag_pasteback = False
 
     pipe = FasterLivePortraitPipeline(cfg=infer_cfg)
     img_src = pipe.prepare_src_image(args.src_image, realtime=args.realtime)
@@ -95,4 +99,6 @@ if __name__ == '__main__':
     else:
         cv2.destroyAllWindows()
 
-    print("inference time: median: {}, mean: {}".format(np.median(infer_times), np.mean(infer_times)))
+    print(
+        "inference median time: {} ms, mean time: {} ms".format(np.median(infer_times) * 1000,
+                                                                np.mean(infer_times) * 1000))
