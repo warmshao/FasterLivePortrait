@@ -14,14 +14,22 @@
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **Changelog**
-- [x] **2024/07/17:** Added support for Docker environment, providing a runnable image.
+- [x] **2024/07/23:** Windows integrated package, one-click run without installation, supporting TensorRT and OnnxruntimeGPU. Thanks to @zhanghongyong123456's contribution in this [issue](https://github.com/warmshao/FasterLivePortrait/issues/22).
+  - [Optional] If you have already installed CUDA and cuDNN on your Windows computer, please skip this step. I have only verified this on CUDA 12.2. If you haven't installed CUDA or if you encounter CUDA-related errors, you need to follow these steps for installation::
+    - Download [cuda12.2](https://developer.nvidia.com/cuda-12-2-0-download-archive?target_os=Windows&target_arch=x86_64), double-click the exe and follow the default settings to install.
+    - Download the [cudnn](https://developer.nvidia.com/downloads/compute/cudnn/secure/8.9.7/local_installers/12.x/cudnn-windows-x86_64-8.9.7.29_cuda12-archive.zip) zip file, extract it and copy the lib, bin, and include folders from the cudnn folder to the CUDA12.2 folder (default is C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2)
+  - [Optional] Install [ffmpeg](https://ffmpeg.org/download.html)
+  - Download the standalone [HuggingFace:FasterLivePortrait-windows](https://huggingface.co/warmshao/FasterLivePortrait-windows/blob/main/FasterLivePortrait-windows.zip) zip file and extract it.
+  - Enter `FasterLivePortrait-windows` and double-click `all_onnx2trt.bat` to convert onnx files, which will take some time.
+  - For web demo: Double-click `app.bat`, open the webpage: `http://localhost:9870/`
+  - For real-time camera operation, double-click `camera.bat`. If you want to change the target image, run in command line: `camera.bat assets/examples/source/s9.jpg`
 - [x] **2024/07/18:** macOS support added(No need for Docker, Python is enough). M1/M2 chips are faster, but it's still quite slow 😟
   - Install ffmpeg: `brew install ffmpeg`
   - Set up a Python 3.10 virtual environment. Recommend using [miniforge](https://github.com/conda-forge/miniforge): `conda create -n flip python=3.10 && conda activate flip`
   - Install requirements: `pip install -r requirements_macos.txt`
   - Download ONNX files: `huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`
   - Test: `python app.py --mode onnx`
-- [ ] Windows integration package, supports one-click run
+- [x] **2024/07/17:** Added support for Docker environment, providing a runnable image.
 
 ### Environment Setup
 * Option 1: Docker (recommended).A docker image is provided for  eliminating the need to install onnxruntime-gpu and TensorRT manually.

@@ -5,6 +5,7 @@
 # @FileName: run.py
 import os
 import argparse
+import pdb
 import subprocess
 import ffmpeg
 import cv2
@@ -41,7 +42,7 @@ if __name__ == '__main__':
         vcap = cv2.VideoCapture(args.dri_video)
     fps = int(vcap.get(cv2.CAP_PROP_FPS))
     h, w = img_src.shape[:2]
-    save_dir = f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%s')}"
+    save_dir = f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}"
     os.makedirs(save_dir, exist_ok=True)
 
     # render output video
@@ -100,5 +101,5 @@ if __name__ == '__main__':
         cv2.destroyAllWindows()
 
     print(
-        "inference median time: {} ms, mean time: {} ms".format(np.median(infer_times) * 1000,
-                                                                np.mean(infer_times) * 1000))
+        "inference median time: {} ms/frame, mean time: {} ms/frame".format(np.median(infer_times) * 1000,
+                                                                            np.mean(infer_times) * 1000))

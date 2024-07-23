@@ -75,7 +75,7 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
         fps = int(vcap.get(cv2.CAP_PROP_FPS))
 
         h, w = self.src_img.shape[:2]
-        save_dir = f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%s')}"
+        save_dir = f"./results/{datetime.datetime.now().strftime('%Y-%m-%d')}"
         os.makedirs(save_dir, exist_ok=True)
 
         # render output video
