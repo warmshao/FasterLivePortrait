@@ -14,14 +14,21 @@
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **日志**
-- [x] **2024/07/17:** 增加docker环境的支持，提供可运行的镜像。
+- [x] **2024/07/23:** Windows的整合包, 免安装一键运行，支持TensorRT和OnnxruntimeGPU。感谢@zhanghongyong123456在[issue](https://github.com/warmshao/FasterLivePortrait/issues/22)的贡献。
+  - 【可选】如果你的windows电脑已经装过cuda12.x和cudnn，请忽略这一步。否则按照以下步骤进行安装：
+    - 下载[cuda12.2](https://developer.nvidia.com/cuda-12-2-0-download-archive?target_os=Windows&target_arch=x86_64), 双击exe后按照默认设置一步步安装即可。
+    - 下载[cudnn](https://developer.nvidia.com/downloads/compute/cudnn/secure/8.9.7/local_installers/12.x/cudnn-windows-x86_64-8.9.7.29_cuda12-archive.zip) 压缩包，解压后将cudnn 文件夹下的lib、bin、include 文件夹复制到 CUDA12.2 文件夹下（默认为C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2）
+  - 下载免安装[HuggingFace:FasterLivePortrait-windows](https://huggingface.co/warmshao/FasterLivePortrait-windows/blob/main/FasterLivePortrait-windows.zip)或[网盘:FasterLivePortrait-windows]() 压缩包，并解压。
+  - 进入`FasterLivePortrait-windows`后双击`all_onnx2trt.bat`对onnx文件进行转换，这会登上一段时间。
+  - 网页端demo：双击`app.bat`, 打开网页：`http://localhost:9870/`
+  - 摄像头实时运行，双击`camera.bat`。如果你想更换目标图像，命令行运行:`camera.bat assets/examples/source/s9.jpg`
 - [x] **2024/07/18:** MacOS支持(不需要Docker，python就可以了），M1/M2的速度比较快，但还是很慢😟
   - 安装ffmpeg: `brew install ffmpeg`
   - 安装python=3.10的虚拟环境，推荐可以用[miniforge](https://github.com/conda-forge/miniforge).`conda create -n flip python=3.10 && conda activate flip`
   - `pip install -r requirements_macos.txt`
   - 下载onnx文件: `huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`
-  - 测试: `python app.py --mode onnx` 
-- [ ] Windows的整合包, 支持一键运行
+  - 测试: `python app.py --mode onnx`
+- [x] **2024/07/17:** 增加docker环境的支持，提供可运行的镜像。
 
 
 ### 环境安装
