@@ -15,9 +15,10 @@
 
 **日志**
 - [x] **2024/07/23:** Windows的整合包, 免安装一键运行，支持TensorRT和OnnxruntimeGPU。感谢@zhanghongyong123456在[issue](https://github.com/warmshao/FasterLivePortrait/issues/22)的贡献。
-  - 【可选】如果你的windows电脑已经装过cuda12.x和cudnn，请忽略这一步。否则按照以下步骤进行安装：
+  - 【可选】如果你的windows电脑已经装过cuda和cudnn，请忽略这一步。我只在cuda12.2上验证过，如果没安装cuda或报cuda相关的错，你需要按照以下步骤进行安装：
     - 下载[cuda12.2](https://developer.nvidia.com/cuda-12-2-0-download-archive?target_os=Windows&target_arch=x86_64), 双击exe后按照默认设置一步步安装即可。
     - 下载[cudnn](https://developer.nvidia.com/downloads/compute/cudnn/secure/8.9.7/local_installers/12.x/cudnn-windows-x86_64-8.9.7.29_cuda12-archive.zip) 压缩包，解压后将cudnn 文件夹下的lib、bin、include 文件夹复制到 CUDA12.2 文件夹下（默认为C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2）
+  - 【可选】安装[ffmpeg](https://ffmpeg.org/download.html)
   - 下载免安装[HuggingFace:FasterLivePortrait-windows](https://huggingface.co/warmshao/FasterLivePortrait-windows/blob/main/FasterLivePortrait-windows.zip)或[网盘:FasterLivePortrait-windows](https://pan.quark.cn/s/3dd6b9b8a8ef) 压缩包，并解压。
   - 进入`FasterLivePortrait-windows`后双击`all_onnx2trt.bat`对onnx文件进行转换，这会等上一段时间。
   - 网页端demo：双击`app.bat`, 打开网页：`http://localhost:9870/`
