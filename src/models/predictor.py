@@ -9,6 +9,7 @@ import os
 
 import numpy as np
 import onnxruntime
+import platform
 
 try:
     import tensorrt as trt
@@ -43,7 +44,10 @@ class TensorRTPredictor:
         # Load TRT engine
         self.logger = trt.Logger(trt.Logger.ERROR)
         # TODO: set the .so file in global path
-        ctypes.CDLL("/opt/grid-sample3d-trt-plugin/build/libgrid_sample_3d_plugin.so", mode=ctypes.RTLD_GLOBAL)
+        if platform.system().lower() == 'windows':
+            ctypes.CDLL("./checkpoints/liveportrait_onnx/libgrid_sample_3d_plugin.so", mode=ctypes.RTLD_GLOBAL)
+        else:
+            ctypes.CDLL("./checkpoints/liveportrait_onnx/grid_sample_3d_plugin.dll", mode=ctypes.RTLD_GLOBAL, winmode=0)
         trt.init_libnvinfer_plugins(self.logger, "")
         engine_path = kwargs.get("model_path", None)
         self.debug = kwargs.get("debug", False)

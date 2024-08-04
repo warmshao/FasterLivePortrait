@@ -20,6 +20,7 @@ import pdb
 import sys
 import logging
 import argparse
+import platform
 
 import tensorrt as trt
 import ctypes
@@ -32,7 +33,10 @@ log = logging.getLogger("EngineBuilder")
 
 def load_plugins(logger: trt.Logger):
     # 加载插件库
-    ctypes.CDLL("/opt/grid-sample3d-trt-plugin/build/libgrid_sample_3d_plugin.so", mode=ctypes.RTLD_GLOBAL)
+    if platform.system().lower() == 'windows':
+        ctypes.CDLL("./checkpoints/liveportrait_onnx/libgrid_sample_3d_plugin.so", mode=ctypes.RTLD_GLOBAL)
+    else:
+        ctypes.CDLL("./checkpoints/liveportrait_onnx/grid_sample_3d_plugin.dll", mode=ctypes.RTLD_GLOBAL, winmode=0)
     # 初始化TensorRT的插件库
     trt.init_libnvinfer_plugins(logger, "")
 

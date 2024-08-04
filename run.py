@@ -13,10 +13,16 @@ import time
 import numpy as np
 import os
 import datetime
+import platform
 from omegaconf import OmegaConf
 
 from src.pipelines.faster_live_portrait_pipeline import FasterLivePortraitPipeline
 from src.utils.utils import video_has_audio
+
+if platform.system().lower() == 'windows':
+    FFMPEG = "third_party/ffmpeg-7.0.1-full_build/bin/ffmpeg.exe"
+else:
+    FFMPEG = "ffmpeg"
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Faster Live Portrait Pipeline')
@@ -33,15 +39,20 @@ if __name__ == '__main__':
         infer_cfg.infer_params.flag_pasteback = False
 
     pipe = FasterLivePortraitPipeline(cfg=infer_cfg)
-    img_src = pipe.prepare_src_image(args.src_image, realtime=args.realtime)
-    assert img_src is not None, "no face detect in {args.src_image}"
+    ret = pipe.prepare_source(args.src_image, realtime=args.realtime)
+    if not ret:
+        print(f"no face in {args.src_image}! exit!")
+        exit(1)
     if not args.dri_video or not os.path.exists(args.dri_video):
         # read frame from camera if no driving video input
         vcap = cv2.VideoCapture(0)
+        if not vcap.isOpened():
+            print("no camera found! exit!")
+            exit(1)
     else:
         vcap = cv2.VideoCapture(args.dri_video)
     fps = int(vcap.get(cv2.CAP_PROP_FPS))
-    h, w = img_src.shape[:2]
+    h, w = pipe.src_imgs[0].shape[:2]
     save_dir = f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}"
     os.makedirs(save_dir, exist_ok=True)
 
@@ -61,8 +72,9 @@ if __name__ == '__main__':
         if not ret:
             break
         t0 = time.time()
-        dri_crop, out_crop, out_org = pipe.run(frame, img_src)
+        dri_crop, out_crop, out_org = pipe.run(frame, pipe.src_imgs[0], pipe.src_infos[0])
         infer_times.append(time.time() - t0)
+        print(time.time() - t0)
         dri_crop = cv2.resize(dri_crop, (512, 512))
         out_crop = np.concatenate([dri_crop, out_crop], axis=1)
         out_crop = cv2.cvtColor(out_crop, cv2.COLOR_RGB2BGR)
@@ -82,15 +94,19 @@ if __name__ == '__main__':
         vout_org.release()
         if video_has_audio(args.dri_video):
             vsave_crop_path_new = os.path.splitext(vsave_crop_path)[0] + "-audio.mp4"
-            subprocess.call(["ffmpeg", "-i", vsave_crop_path, "-i", args.dri_video, "-b:v", "10M", "-c:v",
-                             "libx264", "-map", "0:v", "-map", "1:a",
-                             "-c:a", "aac",
-                             "-pix_fmt", "yuv420p", vsave_crop_path_new, "-y"])
+            subprocess.call(
+                [FFMPEG, "-i", vsave_crop_path, "-i", args.dri_video,
+                 "-b:v", "10M", "-c:v",
+                 "libx264", "-map", "0:v", "-map", "1:a",
+                 "-c:a", "aac",
+                 "-pix_fmt", "yuv420p", vsave_crop_path_new, "-y"])
             vsave_org_path_new = os.path.splitext(vsave_org_path)[0] + "-audio.mp4"
-            subprocess.call(["ffmpeg", "-i", vsave_org_path, "-i", args.dri_video, "-b:v", "10M", "-c:v",
-                             "libx264", "-map", "0:v", "-map", "1:a",
-                             "-c:a", "aac",
-                             "-pix_fmt", "yuv420p", vsave_org_path_new, "-y"])
+            subprocess.call(
+                [FFMPEG, "-i", vsave_org_path, "-i", args.dri_video,
+                 "-b:v", "10M", "-c:v",
+                 "libx264", "-map", "0:v", "-map", "1:a",
+                 "-c:a", "aac",
+                 "-pix_fmt", "yuv420p", vsave_org_path_new, "-y"])
 
             print(vsave_crop_path_new)
             print(vsave_org_path_new)

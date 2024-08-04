@@ -4,6 +4,7 @@ import pdb
 import cv2
 import numpy as np
 import ffmpeg
+import os
 
 
 def video_has_audio(video_file):
@@ -161,3 +162,14 @@ def transform_keypoint(pitch, yaw, roll, t, exp, scale, kp):
 def concat_feat(x, y):
     bs = x.shape[0]
     return np.concatenate([x.reshape(bs, -1), y.reshape(bs, -1)], axis=1)
+
+
+def is_image(file_path):
+    image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff')
+    return file_path.lower().endswith(image_extensions)
+
+
+def is_video(file_path):
+    if file_path.lower().endswith((".mp4", ".mov", ".avi", ".webm")) or os.path.isdir(file_path):
+        return True
+    return False
