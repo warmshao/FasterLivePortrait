@@ -9,7 +9,7 @@
 * Seamless support for native gradio app, with several times faster speed and support for simultaneous inference on multiple faces. Some results can be seen here: [pr105](https://github.com/KwaiVGI/LivePortrait/pull/105)
 * Refactored code structure, no longer dependent on pytorch, all models use onnx or tensorrt for inference.
 
-**If you find this project useful, please give it a star ❤️❤️**
+**If you find this project useful, please give it a star ✨✨**
 
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
@@ -21,7 +21,7 @@
   - Download the installation-free [Windows integration package](https://github.com/warmshao/FasterLivePortrait/releases) from the release page and extract it.
   - Enter `FasterLivePortrait-windows` and double-click `all_onnx2trt.bat` to convert onnx files, which will take some time.
   - For web demo: Double-click `app.bat`, open the webpage: `http://localhost:9870/`
-  - For real-time camera operation, double-click `camera.bat`. If you want to change the target image, run in command line: `camera.bat assets/examples/source/s9.jpg`
+  - For real-time camera operation, double-click `camera.bat`，press `q` to stop. If you want to change the target image, run in command line: `camera.bat assets/examples/source/s9.jpg`
 - [x] **2024/07/18:** macOS support added(No need for Docker, Python is enough). M1/M2 chips are faster, but it's still quite slow 😟
   - Install ffmpeg: `brew install ffmpeg`
   - Set up a Python 3.10 virtual environment. Recommend using [miniforge](https://github.com/conda-forge/miniforge): `conda create -n flip python=3.10 && conda activate flip`

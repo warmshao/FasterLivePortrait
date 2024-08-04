@@ -9,7 +9,7 @@
 * 无缝支持原生的gradio app, 速度快了好几倍，同时支持对多张人脸的同时推理，一些效果可以看：[pr105](https://github.com/KwaiVGI/LivePortrait/pull/105)
 * 对代码结构进行了重构，不再依赖pytorch，所有的模型用onnx或tensorrt推理。
 
-**如果你觉得这个项目有用，帮我点个star吧❤️❤️**
+**如果你觉得这个项目有用，帮我点个star吧✨✨**
 
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
@@ -21,7 +21,7 @@
   - 从release页下载免安装[windows 整合包](https://github.com/warmshao/FasterLivePortrait/releases)并解压。
   - 进入`FasterLivePortrait-windows`后双击`all_onnx2trt.bat`对onnx文件进行转换，这会等上一段时间。
   - 网页端demo：双击`app.bat`, 打开网页：`http://localhost:9870/`
-  - 摄像头实时运行，双击`camera.bat`。如果你想更换目标图像，命令行运行:`camera.bat assets/examples/source/s9.jpg`
+  - 摄像头实时运行，双击`camera.bat`，按`q`停止。如果你想更换目标图像，命令行运行:`camera.bat assets/examples/source/s9.jpg`。
 - [x] **2024/07/18:** MacOS支持(不需要Docker，python就可以了），M1/M2的速度比较快，但还是很慢😟
   - 安装ffmpeg: `brew install ffmpeg`
   - 安装python=3.10的虚拟环境，推荐可以用[miniforge](https://github.com/conda-forge/miniforge).`conda create -n flip python=3.10 && conda activate flip`
