@@ -291,5 +291,5 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
 demo.launch(
     server_port=9870,
     share=False,
-    server_name="127.0.0.1"
+    server_name="0.0.0.0"
 )

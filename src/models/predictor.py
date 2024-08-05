@@ -44,7 +44,7 @@ class TensorRTPredictor:
         # Load TRT engine
         self.logger = trt.Logger(trt.Logger.ERROR)
         # TODO: set the .so file in global path
-        if platform.system().lower() == 'windows':
+        if platform.system().lower() == 'linux':
             ctypes.CDLL("./checkpoints/liveportrait_onnx/libgrid_sample_3d_plugin.so", mode=ctypes.RTLD_GLOBAL)
         else:
             ctypes.CDLL("./checkpoints/liveportrait_onnx/grid_sample_3d_plugin.dll", mode=ctypes.RTLD_GLOBAL, winmode=0)
