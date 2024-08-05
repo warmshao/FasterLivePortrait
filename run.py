@@ -99,14 +99,14 @@ if __name__ == '__main__':
                  "-b:v", "10M", "-c:v",
                  "libx264", "-map", "0:v", "-map", "1:a",
                  "-c:a", "aac",
-                 "-pix_fmt", "yuv420p", vsave_crop_path_new, "-y"])
+                 "-pix_fmt", "yuv420p", vsave_crop_path_new, "-y", "-shortest"])
             vsave_org_path_new = os.path.splitext(vsave_org_path)[0] + "-audio.mp4"
             subprocess.call(
                 [FFMPEG, "-i", vsave_org_path, "-i", args.dri_video,
                  "-b:v", "10M", "-c:v",
                  "libx264", "-map", "0:v", "-map", "1:a",
                  "-c:a", "aac",
-                 "-pix_fmt", "yuv420p", vsave_org_path_new, "-y"])
+                 "-pix_fmt", "yuv420p", vsave_org_path_new, "-y", "-shortest"])
 
             print(vsave_crop_path_new)
             print(vsave_org_path_new)
