@@ -39,6 +39,11 @@ def gpu_wrapped_execute_image(*args, **kwargs):
     return gradio_pipeline.execute_image(*args, **kwargs)
 
 
+def change_animal_model(is_animal):
+    global gradio_pipeline
+    gradio_pipeline.init_models(is_animal=is_animal)
+
+
 # assets
 title_md = "assets/gradio/gradio_title.md"
 example_portrait_dir = "assets/examples/source"
@@ -75,8 +80,18 @@ output_video_concat_i2v = gr.Video(autoplay=False)
 # output_video_v2v = gr.Video(autoplay=False)
 # output_video_concat_v2v = gr.Video(autoplay=False)
 
+js_func = """
+    function refresh() {
+        const url = new URL(window.location);
 
-with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta Sans")])) as demo:
+        if (url.searchParams.get('__theme') !== 'dark') {
+            url.searchParams.set('__theme', 'dark');
+            window.location.href = url.href;
+        }
+    }
+    """
+
+with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta Sans")]), js=js_func) as demo:
     gr.HTML(load_description(title_md))
 
     gr.Markdown(load_description("assets/gradio/gradio_description_upload.md"))
@@ -155,10 +170,14 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
         with gr.Accordion(open=True, label="Animation Options"):
             with gr.Row():
                 flag_relative_input = gr.Checkbox(value=True, label="relative motion")
+                flag_stitching = gr.Checkbox(value=True, label="stitching")
+                driving_multiplier = gr.Number(value=1.0, label="driving multiplier", minimum=0.0, maximum=2.0,
+                                                    step=0.02)
                 flag_remap_input = gr.Checkbox(value=True, label="paste-back")
                 flag_video_editing_head_rotation = gr.Checkbox(value=False, label="relative head rotation (v2v)")
                 driving_smooth_observation_variance = gr.Number(value=1e-7, label="motion smooth strength (v2v)",
                                                                 minimum=1e-11, maximum=1e-2, step=1e-8)
+                flag_is_animal = gr.Checkbox(value=False, label="is_animal")
 
     gr.Markdown(load_description("assets/gradio/gradio_description_animate_clear.md"))
     with gr.Row():
@@ -175,46 +194,6 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
         with gr.Column():
             with gr.Accordion(open=True, label="The animated video"):
                 output_video_concat_i2v.render()
-
-    with gr.Row():
-        # Examples
-        gr.Markdown("## You could also choose the examples below by one click ⬇️")
-    with gr.Row():
-        with gr.Tabs():
-            with gr.TabItem("🖼️ Portrait Animation"):
-                gr.Examples(
-                    examples=data_examples_i2v,
-                    fn=gpu_wrapped_execute_video,
-                    inputs=[
-                        source_image_input,
-                        driving_video_input,
-                        flag_relative_input,
-                        flag_do_crop_input,
-                        flag_remap_input,
-                        flag_crop_driving_video_input,
-                    ],
-                    outputs=[output_image, output_image_paste_back],
-                    examples_per_page=len(data_examples_i2v),
-                    cache_examples=False,
-                )
-            with gr.TabItem("🎞️ Portrait Video Editing"):
-                gr.Examples(
-                    examples=data_examples_v2v,
-                    fn=gpu_wrapped_execute_video,
-                    inputs=[
-                        source_video_input,
-                        driving_video_input,
-                        flag_relative_input,
-                        flag_do_crop_input,
-                        flag_remap_input,
-                        flag_crop_driving_video_input,
-                        flag_video_editing_head_rotation,
-                        driving_smooth_observation_variance,
-                    ],
-                    outputs=[output_image, output_image_paste_back],
-                    examples_per_page=len(data_examples_v2v),
-                    cache_examples=False,
-                )
 
     # Retargeting
     gr.Markdown(load_description("assets/gradio/gradio_description_retargeting.md"), visible=True)
@@ -256,6 +235,7 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
             with gr.Accordion(open=True, label="Paste-back Result"):
                 output_image_paste_back.render()
 
+    flag_is_animal.change(change_animal_model, inputs=[flag_is_animal])
     # binding functions for buttons
     process_button_retargeting.click(
         # fn=gradio_pipeline.execute_image,
@@ -273,8 +253,11 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
             flag_relative_input,
             flag_do_crop_input,
             flag_remap_input,
+            driving_multiplier,
+            flag_stitching,
             flag_crop_driving_video_input,
             flag_video_editing_head_rotation,
+            flag_is_animal,
             scale,
             vx_ratio,
             vy_ratio,

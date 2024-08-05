@@ -5,3 +5,7 @@ __pycache__
 checkpoints
 results
 venv
+*.egg-info
+build
+dist
+*.eg

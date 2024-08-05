@@ -23,8 +23,11 @@ except ModuleNotFoundError:
 try:
     import pycuda.driver as cuda
     import pycuda.autoprimaryctx
+    import pycuda.autoinit
 except ModuleNotFoundError:
     print("No PyCUDA Found")
+
+import contextlib
 
 
 class TensorRTPredictor:
@@ -63,40 +66,41 @@ class TensorRTPredictor:
         self.inputs = []
         self.outputs = []
         self.allocations = []
-        for i in range(self.engine.num_bindings):
-            is_input = False
-            if self.engine.binding_is_input(i):
-                is_input = True
-            name = self.engine.get_binding_name(i)
-            dtype = np.dtype(trt.nptype(self.engine.get_binding_dtype(i)))
-            shape = self.context.get_binding_shape(i)
-            if is_input and shape[0] < 0:
-                assert self.engine.num_optimization_profiles > 0
-                profile_shape = self.engine.get_profile_shape(0, name)
-                assert len(profile_shape) == 3  # min,opt,max
-                # Set the *max* profile as binding shape
-                self.context.set_binding_shape(i, profile_shape[2])
+        with self._cuda_context():
+            for i in range(self.engine.num_bindings):
+                is_input = False
+                if self.engine.binding_is_input(i):
+                    is_input = True
+                name = self.engine.get_binding_name(i)
+                dtype = np.dtype(trt.nptype(self.engine.get_binding_dtype(i)))
                 shape = self.context.get_binding_shape(i)
-            if is_input:
-                self.batch_size = shape[0]
-            size = dtype.itemsize
-            for s in shape:
-                size *= s
-            allocation = cuda.mem_alloc(size)
-            host_allocation = None if is_input else np.zeros(shape, dtype)
-            binding = {
-                "index": i,
-                "name": name,
-                "dtype": dtype,
-                "shape": list(shape),
-                "allocation": allocation,
-                "host_allocation": host_allocation,
-            }
-            self.allocations.append(allocation)
-            if self.engine.binding_is_input(i):
-                self.inputs.append(binding)
-            else:
-                self.outputs.append(binding)
+                if is_input and shape[0] < 0:
+                    assert self.engine.num_optimization_profiles > 0
+                    profile_shape = self.engine.get_profile_shape(0, name)
+                    assert len(profile_shape) == 3  # min,opt,max
+                    # Set the *max* profile as binding shape
+                    self.context.set_binding_shape(i, profile_shape[2])
+                    shape = self.context.get_binding_shape(i)
+                if is_input:
+                    self.batch_size = shape[0]
+                size = dtype.itemsize
+                for s in shape:
+                    size *= s
+                allocation = cuda.mem_alloc(size)
+                host_allocation = None if is_input else np.zeros(shape, dtype)
+                binding = {
+                    "index": i,
+                    "name": name,
+                    "dtype": dtype,
+                    "shape": list(shape),
+                    "allocation": allocation,
+                    "host_allocation": host_allocation,
+                }
+                self.allocations.append(allocation)
+                if self.engine.binding_is_input(i):
+                    self.inputs.append(binding)
+                else:
+                    self.outputs.append(binding)
             # print("{} '{}' with shape {} and dtype {}".format(
             #     "Input" if is_input else "Output",
             #     binding['name'], binding['shape'], binding['dtype']))
@@ -130,36 +134,51 @@ class TensorRTPredictor:
                 print(f"trt output {i} -> {o['name']}")
         return specs
 
+    @contextlib.contextmanager
+    def _cuda_context(self):
+        if self.cfx:
+            self.cfx.push()
+        try:
+            yield
+        finally:
+            if self.cfx:
+                self.cfx.pop()
+
     def predict(self, *data):
         """
         Execute inference on a batch of images.
         :param data: A list of inputs as numpy arrays.
         :return A list of outputs as numpy arrays.
         """
-        self.cfx.push()
-        # Copy I/O and Execute
-        for i in range(len(data)):
-            data_ = np.ascontiguousarray(data[i], self.inputs[i]["dtype"])
-            cuda.memcpy_htod(self.inputs[i]['allocation'], data_)
-        self.context.execute_v2(self.allocations)
-        for o in range(len(self.outputs)):
-            cuda.memcpy_dtoh(self.outputs[o]['host_allocation'], self.outputs[o]['allocation'])
-        self.cfx.pop()
-        return [o['host_allocation'] for o in self.outputs]
+        with self._cuda_context():
+            # Copy I/O and Execute
+            for i in range(len(data)):
+                data_ = np.ascontiguousarray(data[i], self.inputs[i]["dtype"])
+                cuda.memcpy_htod(self.inputs[i]['allocation'], data_)
+            self.context.execute_v2(self.allocations)
+            for o in range(len(self.outputs)):
+                cuda.memcpy_dtoh(self.outputs[o]['host_allocation'], self.outputs[o]['allocation'])
+            return [o['host_allocation'] for o in self.outputs]
+
+    def cleanup(self):
+        with self._cuda_context():
+            if hasattr(self, 'context'):
+                del self.context
+            if hasattr(self, 'engine'):
+                del self.engine
+            for allocation in self.allocations:
+                allocation.free()
+            self.allocations.clear()
+            if hasattr(self, 'stream'):
+                self.stream.free()
+        if self.cfx:
+            self.cfx.detach()
 
     def __del__(self):
-        del self.engine
-        del self.context
-        del self.inputs
-        del self.outputs
-        del self.allocations
-
         try:
-            if self.cfx is not None:
-                self.cfx.pop()
-                del self.cfx
+            self.cleanup()
         except Exception as e:
-            print(e.__str__())
+            print(f"Error during cleanup: {e}")
 
 
 class OnnxRuntimePredictor:

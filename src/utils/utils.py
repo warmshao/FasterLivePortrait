@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import ffmpeg
 import os
+import os.path as osp
 
 
 def video_has_audio(video_file):
@@ -173,3 +174,7 @@ def is_video(file_path):
     if file_path.lower().endswith((".mp4", ".mov", ".avi", ".webm")) or os.path.isdir(file_path):
         return True
     return False
+
+
+def make_abs_path(fn):
+    return osp.join(os.path.dirname(osp.dirname(osp.realpath(__file__))), fn)

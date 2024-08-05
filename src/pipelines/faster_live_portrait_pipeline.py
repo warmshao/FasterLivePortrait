@@ -8,10 +8,11 @@ import copy
 import pdb
 import time
 import traceback
-
+from PIL import Image
 import cv2
 from tqdm import tqdm
 import numpy as np
+import torch
 
 from .. import models
 from ..utils.crop import crop_image, parse_bbox_from_landmark, crop_image_by_bbox, paste_back
@@ -26,16 +27,42 @@ class FasterLivePortraitPipeline:
         self.init(**kwargs)
 
     def init(self, **kwargs):
-        self.init_models(**kwargs)
         self.init_vars(**kwargs)
+        self.init_models(**kwargs)
 
     def init_models(self, **kwargs):
-        self.model_dict = {}
-        for model_name in self.cfg.models:
-            print(f"loading model: {model_name}")
-            print(self.cfg.models[model_name])
-            self.model_dict[model_name] = getattr(models, self.cfg.models[model_name]["name"])(
-                **self.cfg.models[model_name])
+        for key in list(self.model_dict.keys()):
+            del self.model_dict[key]
+            torch.cuda.empty_cache()
+        del self.model_dict
+        if kwargs.get("is_animal", None) is not None:
+            self.is_animal = kwargs.get("is_animal")
+        if not self.is_animal:
+            print("load Human Model >>>")
+            self.model_dict = {}
+            for model_name in self.cfg.models:
+                print(f"loading model: {model_name}")
+                print(self.cfg.models[model_name])
+                self.model_dict[model_name] = getattr(models, self.cfg.models[model_name]["name"])(
+                    **self.cfg.models[model_name])
+        else:
+            print("load Animal Model >>>")
+            self.model_dict = {}
+            from src.utils.animal_landmark_runner import XPoseRunner
+            from src.utils.utils import make_abs_path
+
+            xpose_ckpt_path: str = make_abs_path("../checkpoints/liveportrait_animal_onnx/xpose.pth")
+            xpose_config_file_path: str = make_abs_path("models/XPose/config_model/UniPose_SwinT.py")
+            xpose_embedding_cache_path: str = make_abs_path('../checkpoints/liveportrait_animal_onnx/clip_embedding')
+            self.model_dict["xpose"] = XPoseRunner(model_config_path=xpose_config_file_path,
+                                                   model_checkpoint_path=xpose_ckpt_path,
+                                                   embeddings_cache_path=xpose_embedding_cache_path,
+                                                   flag_use_half_precision=True)
+            for model_name in self.cfg.animal_models:
+                print(f"loading model: {model_name}")
+                print(self.cfg.animal_models[model_name])
+                self.model_dict[model_name] = getattr(models, self.cfg.animal_models[model_name]["name"])(
+                    **self.cfg.animal_models[model_name])
 
     def init_vars(self, **kwargs):
         self.mask_crop = cv2.imread(self.cfg.infer_params.mask_crop_path, cv2.IMREAD_COLOR)
@@ -49,6 +76,10 @@ class FasterLivePortraitPipeline:
         self.src_infos = []
         self.src_imgs = []
         self.is_source_video = False
+
+        ## 是否是animal的模型
+        self.is_animal = kwargs.get("is_animal", True)
+        self.model_dict = {}
 
     def calc_combined_eye_ratio(self, c_d_eyes_i, source_lmk):
         c_s_eyes = calc_eye_close_ratio(source_lmk[None])
@@ -95,20 +126,39 @@ class FasterLivePortraitPipeline:
                 img_bgr = resize_to_limit(img_bgr, self.cfg.infer_params.source_max_dim,
                                           self.cfg.infer_params.source_division)
                 img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-                src_faces = self.model_dict["face_analysis"].predict(img_bgr)
-                if len(src_faces) == 0:
-                    print("No face detected in the this image.")
-                    continue
-                self.src_imgs.append(img_rgb)
-                # 如果是实时，只关注最大的那张脸
-                if kwargs.get("realtime", False):
-                    src_faces = src_faces[:1]
+                src_faces = []
+                if self.is_animal:
+                    with torch.no_grad():
+                        img_rgb_pil = Image.fromarray(img_rgb)
+                        lmk = self.model_dict["xpose"].run(
+                            img_rgb_pil,
+                            'face',
+                            'animal_face',
+                            0,
+                            0
+                        )
+                    if lmk is None:
+                        continue
+                    self.src_imgs.append(img_rgb)
+                    src_faces.append(lmk)
+                else:
+                    src_faces = self.model_dict["face_analysis"].predict(img_bgr)
+                    if len(src_faces) == 0:
+                        print("No face detected in the this image.")
+                        continue
+                    self.src_imgs.append(img_rgb)
+                    # 如果是实时，只关注最大的那张脸
+                    if kwargs.get("realtime", False):
+                        src_faces = src_faces[:1]
 
                 crop_infos = []
                 for i in range(len(src_faces)):
                     # NOTE: temporarily only pick the first face, to support multiple face in the future
-                    src_face = src_faces[i]
-                    lmk = src_face.landmark  # this is the 106 landmarks from insightface
+                    if self.is_animal:
+                        lmk = src_faces[i]
+                    else:
+                        src_face = src_faces[i]
+                        lmk = src_face.landmark  # this is the 106 landmarks from insightface
                     # crop the face
                     ret_dct = crop_image(
                         img_rgb,  # ndarray
@@ -118,15 +168,19 @@ class FasterLivePortraitPipeline:
                         vx_ratio=self.cfg.crop_params.src_vx_ratio,
                         vy_ratio=self.cfg.crop_params.src_vy_ratio,
                     )
-                    lmk = self.model_dict["landmark"].predict(img_rgb, lmk)
-                    ret_dct["lmk_crop"] = lmk
+                    if self.is_animal:
+                        ret_dct["lmk_crop"] = lmk
+                    else:
+                        lmk = self.model_dict["landmark"].predict(img_rgb, lmk)
+                        ret_dct["lmk_crop"] = lmk
+                        ret_dct["lmk_crop_256x256"] = ret_dct["lmk_crop"] * 256 / self.cfg.crop_params.src_dsize
 
                     # update a 256x256 version for network input
                     ret_dct["img_crop_256x256"] = cv2.resize(
                         ret_dct["img_crop"], (256, 256), interpolation=cv2.INTER_AREA
                     )
-                    ret_dct["lmk_crop_256x256"] = ret_dct["lmk_crop"] * 256 / self.cfg.crop_params.src_dsize
                     crop_infos.append(ret_dct)
+
                 src_infos = [[] for _ in range(len(crop_infos))]
                 for i, crop_info in enumerate(crop_infos):
                     source_lmk = crop_info['lmk_crop']
@@ -148,22 +202,29 @@ class FasterLivePortraitPipeline:
                     f_s = self.model_dict["app_feat_extractor"].predict(img_crop_256x256)
                     x_s = transform_keypoint(pitch, yaw, roll, t, exp, scale, kp)
                     src_infos[i].extend([source_lmk.copy(), R_s.copy(), f_s.copy(), x_s.copy(), x_c_s.copy()])
-                    flag_lip_zero = self.cfg.infer_params.flag_normalize_lip  # not overwrite
-                    if flag_lip_zero:
-                        # let lip-open scalar to be 0 at first
-                        c_d_lip_before_animation = [0.]
-                        combined_lip_ratio_tensor_before_animation = self.calc_combined_lip_ratio(
-                            c_d_lip_before_animation, source_lmk)
-                        if combined_lip_ratio_tensor_before_animation[0][
-                            0] < self.cfg.infer_params.lip_normalize_threshold:
-                            flag_lip_zero = False
+                    if not self.is_animal:
+                        flag_lip_zero = self.cfg.infer_params.flag_normalize_lip  # not overwrite
+                        if flag_lip_zero:
+                            # let lip-open scalar to be 0 at first
+                            c_d_lip_before_animation = [0.]
+                            combined_lip_ratio_tensor_before_animation = self.calc_combined_lip_ratio(
+                                c_d_lip_before_animation, source_lmk)
+                            if combined_lip_ratio_tensor_before_animation[0][
+                                0] < self.cfg.infer_params.lip_normalize_threshold:
+                                flag_lip_zero = False
+                                src_infos[i].append(None)
+                                src_infos[i].append(flag_lip_zero)
+                            else:
+                                lip_delta_before_animation = self.model_dict['stitching_lip_retarget'].predict(
+                                    concat_feat(x_s, combined_lip_ratio_tensor_before_animation))
+                                src_infos[i].append(lip_delta_before_animation.copy())
+                                src_infos[i].append(flag_lip_zero)
+                        else:
                             src_infos[i].append(None)
                             src_infos[i].append(flag_lip_zero)
-                        else:
-                            lip_delta_before_animation = self.model_dict['stitching_lip_retarget'].predict(
-                                concat_feat(x_s, combined_lip_ratio_tensor_before_animation))
-                            src_infos[i].append(lip_delta_before_animation.copy())
-                            src_infos[i].append(flag_lip_zero)
+                    else:
+                        src_infos[i].append(None)
+                        src_infos[i].append(False)
 
                     ######## prepare for pasteback ########
                     if self.cfg.infer_params.flag_pasteback and self.cfg.infer_params.flag_do_crop and self.cfg.infer_params.flag_stitching:
@@ -314,46 +375,48 @@ class FasterLivePortraitPipeline:
 
             t_new[..., 2] = 0  # zero tz
             x_d_i_new = scale_new * (x_c_s @ R_new + delta_new) + t_new
-            # Algorithm 1:
-            if not self.cfg.infer_params.flag_stitching and not self.cfg.infer_params.flag_eye_retargeting and not self.cfg.infer_params.flag_lip_retargeting:
-                # without stitching or retargeting
-                if flag_lip_zero:
-                    x_d_i_new += lip_delta_before_animation.reshape(-1, x_s.shape[1], 3)
+            if not self.is_animal:
+                # Algorithm 1:
+                if not self.cfg.infer_params.flag_stitching and not self.cfg.infer_params.flag_eye_retargeting and not self.cfg.infer_params.flag_lip_retargeting:
+                    # without stitching or retargeting
+                    if flag_lip_zero:
+                        x_d_i_new += lip_delta_before_animation.reshape(-1, x_s.shape[1], 3)
+                    else:
+                        pass
+                elif self.cfg.infer_params.flag_stitching and not self.cfg.infer_params.flag_eye_retargeting and not self.cfg.infer_params.flag_lip_retargeting:
+                    # with stitching and without retargeting
+                    if flag_lip_zero:
+                        x_d_i_new = self.stitching(x_s, x_d_i_new) + lip_delta_before_animation.reshape(
+                            -1, x_s.shape[1], 3)
+                    else:
+                        x_d_i_new = self.stitching(x_s, x_d_i_new)
                 else:
-                    pass
-            elif self.cfg.infer_params.flag_stitching and not self.cfg.infer_params.flag_eye_retargeting and not self.cfg.infer_params.flag_lip_retargeting:
-                # with stitching and without retargeting
-                if flag_lip_zero:
-                    x_d_i_new = self.stitching(x_s, x_d_i_new) + lip_delta_before_animation.reshape(
-                        -1, x_s.shape[1], 3)
-                else:
-                    x_d_i_new = self.stitching(x_s, x_d_i_new)
-            else:
-                eyes_delta, lip_delta = None, None
-                if self.cfg.infer_params.flag_eye_retargeting:
-                    c_d_eyes_i = input_eye_ratio
-                    combined_eye_ratio_tensor = self.calc_combined_eye_ratio(c_d_eyes_i,
-                                                                             source_lmk)
-                    # ∆_eyes,i = R_eyes(x_s; c_s,eyes, c_d,eyes,i)
-                    eyes_delta = self.retarget_eye(x_s, combined_eye_ratio_tensor)
-                if self.cfg.infer_params.flag_lip_retargeting:
-                    c_d_lip_i = input_lip_ratio
-                    combined_lip_ratio_tensor = self.calc_combined_lip_ratio(c_d_lip_i, source_lmk)
-                    # ∆_lip,i = R_lip(x_s; c_s,lip, c_d,lip,i)
-                    lip_delta = self.retarget_lip(x_s, combined_lip_ratio_tensor)
+                    eyes_delta, lip_delta = None, None
+                    if self.cfg.infer_params.flag_eye_retargeting:
+                        c_d_eyes_i = input_eye_ratio
+                        combined_eye_ratio_tensor = self.calc_combined_eye_ratio(c_d_eyes_i,
+                                                                                 source_lmk)
+                        # ∆_eyes,i = R_eyes(x_s; c_s,eyes, c_d,eyes,i)
+                        eyes_delta = self.retarget_eye(x_s, combined_eye_ratio_tensor)
+                    if self.cfg.infer_params.flag_lip_retargeting:
+                        c_d_lip_i = input_lip_ratio
+                        combined_lip_ratio_tensor = self.calc_combined_lip_ratio(c_d_lip_i, source_lmk)
+                        # ∆_lip,i = R_lip(x_s; c_s,lip, c_d,lip,i)
+                        lip_delta = self.retarget_lip(x_s, combined_lip_ratio_tensor)
 
-                if self.cfg.infer_params.flag_relative_motion:  # use x_s
-                    x_d_i_new = x_s + \
-                                (eyes_delta.reshape(-1, x_s.shape[1], 3) if eyes_delta is not None else 0) + \
-                                (lip_delta.reshape(-1, x_s.shape[1], 3) if lip_delta is not None else 0)
-                else:  # use x_d,i
-                    x_d_i_new = x_d_i_new + \
-                                (eyes_delta.reshape(-1, x_s.shape[1], 3) if eyes_delta is not None else 0) + \
-                                (lip_delta.reshape(-1, x_s.shape[1], 3) if lip_delta is not None else 0)
+                    if self.cfg.infer_params.flag_relative_motion:  # use x_s
+                        x_d_i_new = x_s + \
+                                    (eyes_delta.reshape(-1, x_s.shape[1], 3) if eyes_delta is not None else 0) + \
+                                    (lip_delta.reshape(-1, x_s.shape[1], 3) if lip_delta is not None else 0)
+                    else:  # use x_d,i
+                        x_d_i_new = x_d_i_new + \
+                                    (eyes_delta.reshape(-1, x_s.shape[1], 3) if eyes_delta is not None else 0) + \
+                                    (lip_delta.reshape(-1, x_s.shape[1], 3) if lip_delta is not None else 0)
 
-                if self.cfg.infer_params.flag_stitching:
-                    x_d_i_new = self.stitching(x_s, x_d_i_new)
+                    if self.cfg.infer_params.flag_stitching:
+                        x_d_i_new = self.stitching(x_s, x_d_i_new)
 
+            x_d_i_new = x_s + (x_d_i_new - x_s) * self.cfg.infer_params.driving_multiplier
             out_crop = self.model_dict["warping_spade"].predict(f_s, x_s, x_d_i_new)
             if not realtime and self.cfg.infer_params.flag_pasteback and self.cfg.infer_params.flag_do_crop and self.cfg.infer_params.flag_stitching:
                 # TODO: pasteback is slow, considering optimize it using multi-threading or GPU
