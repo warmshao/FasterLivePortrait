@@ -6,7 +6,7 @@
 
 """
  python run.py \
- --src_image assets/examples/source/s39.jpg \
+ --src_image assets/examples/source/s12.jpg \
  --dri_video assets/examples/driving/d0.mp4 \
  --cfg configs/trt_infer.yaml
 """

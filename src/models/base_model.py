@@ -1,12 +1,5 @@
-# -*- coding: utf-8 -*-
-# @Time    : 2022/12/30 8:57
-# @Author  : wenshao
-# @Email   : wenshaoguo1026@gmail.com
-# @Project : FasterLivePortrait
-# @FileName: base_model.py
-
 import copy
-
+import torch
 from .predictor import get_predictor
 
 
@@ -18,6 +11,10 @@ class BaseModel:
     def __init__(self, **kwargs):
         self.kwargs = copy.deepcopy(kwargs)
         self.predictor = get_predictor(**self.kwargs)
+        self.device = torch.cuda.current_device()
+        self.cudaStream = torch.cuda.current_stream().cuda_stream
+        self.predict_type = kwargs.get("predict_type", "trt")
+
         if self.predictor is not None:
             self.input_shapes = self.predictor.input_spec()
             self.output_shapes = self.predictor.output_spec()

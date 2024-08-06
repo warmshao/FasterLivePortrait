@@ -28,18 +28,22 @@ class FasterLivePortraitPipeline:
 
     def init(self, **kwargs):
         self.init_vars(**kwargs)
-        self.init_models(**kwargs)
+        self.init_models(is_animal=self.is_animal, **kwargs)
+
+    def clean_models(self, **kwargs):
+        """
+        clean model
+        :param kwargs:
+        :return:
+        """
+        for key in list(self.model_dict.keys()):
+            del self.model_dict[key]
+        self.model_dict = {}
 
     def init_models(self, **kwargs):
-        # for key in list(self.model_dict.keys()):
-        #     del self.model_dict[key]
-        #     torch.cuda.empty_cache()
-        del self.model_dict
-        pdb.set_trace()
-        if kwargs.get("is_animal", None) is not None:
-            self.is_animal = kwargs.get("is_animal")
-        if not self.is_animal:
+        if not kwargs.get("is_animal", False):
             print("load Human Model >>>")
+            self.is_animal = False
             self.model_dict = {}
             for model_name in self.cfg.models:
                 print(f"loading model: {model_name}")
@@ -48,6 +52,7 @@ class FasterLivePortraitPipeline:
                     **self.cfg.models[model_name])
         else:
             print("load Animal Model >>>")
+            self.is_animal = True
             self.model_dict = {}
             from src.utils.animal_landmark_runner import XPoseRunner
             from src.utils.utils import make_abs_path
@@ -78,9 +83,7 @@ class FasterLivePortraitPipeline:
         self.src_imgs = []
         self.is_source_video = False
 
-        ## 是否是animal的模型
-        self.is_animal = kwargs.get("is_animal", True)
-        self.model_dict = {}
+        self.is_animal = True
 
     def calc_combined_eye_ratio(self, c_d_eyes_i, source_lmk):
         c_s_eyes = calc_eye_close_ratio(source_lmk[None])
@@ -427,3 +430,6 @@ class FasterLivePortraitPipeline:
                 I_p_pstbk = paste_back(out_crop, crop_info['M_c2o'], I_p_pstbk, mask_ori_float)
 
         return img_crop, out_crop, I_p_pstbk
+
+    def __del__(self):
+        self.clean_models()

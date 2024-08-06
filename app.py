@@ -41,6 +41,7 @@ def gpu_wrapped_execute_image(*args, **kwargs):
 
 def change_animal_model(is_animal):
     global gradio_pipeline
+    gradio_pipeline.clean_models()
     gradio_pipeline.init_models(is_animal=is_animal)
 
 

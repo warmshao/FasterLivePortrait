@@ -32,16 +32,24 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
         super(GradioLivePortraitPipeline, self).__init__(cfg, **kwargs)
 
     def update_cfg(self, args_user):
+        update_ret = False
         for key in args_user:
             if key in self.cfg.infer_params:
+                if self.cfg.infer_params[key] != args_user[key]:
+                    update_ret = True
                 print("update infer cfg {} from {} to {}".format(key, self.cfg.infer_params[key], args_user[key]))
                 self.cfg.infer_params[key] = args_user[key]
             elif key in self.cfg.crop_params:
+                if self.cfg.crop_params[key] != args_user[key]:
+                    update_ret = True
                 print("update crop cfg {} from {} to {}".format(key, self.cfg.crop_params[key], args_user[key]))
                 self.cfg.crop_params[key] = args_user[key]
             else:
+                if key in self.cfg.infer_params and self.cfg.infer_params[key] != args_user[key]:
+                    update_ret = True
                 print("add {}:{} to infer cfg".format(key, args_user[key]))
                 self.cfg.infer_params[key] = args_user[key]
+        return update_ret
 
     def execute_video(
             self,
@@ -74,6 +82,10 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
         else:
             input_source_path = input_source_image_path
 
+        if flag_is_animal != self.is_animal:
+            self.is_animal = flag_is_animal
+            self.init_models(is_animal=flag_is_animal)
+
         if input_source_path is not None and input_driving_video_path is not None:
             args_user = {
                 'source': input_source_path,
@@ -94,9 +106,10 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
                 'driving_smooth_observation_variance': driving_smooth_observation_variance,
             }
             # update config from user input
-            self.update_cfg(args_user)
+            update_ret = self.update_cfg(args_user)
             # video driven animation
-            video_path, video_path_concat, total_time = self.run_local(input_driving_video_path, input_source_path)
+            video_path, video_path_concat, total_time = self.run_local(input_driving_video_path, input_source_path,
+                                                                       update_ret=update_ret)
             gr.Info(f"Run successfully! Cost: {total_time} seconds!", duration=3)
             return video_path, video_path_concat,
         else:
@@ -105,7 +118,7 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
     def run_local(self, driving_video_path, source_path, **kwargs):
         t00 = time.time()
 
-        if self.source_path != source_path:
+        if self.source_path != source_path or kwargs.get("update_ret", False):
             # 如果不一样要重新初始化变量
             self.init_vars(**kwargs)
             ret = self.prepare_source(source_path)

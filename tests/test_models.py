@@ -185,6 +185,7 @@ def test_landmark_model():
     trt_kwargs = dict(
         predict_type="trt",
         model_path="./checkpoints/liveportrait_onnx/landmark.trt",
+        debug=True
     )
 
     trt_model = LandmarkModel(**trt_kwargs)
@@ -193,6 +194,7 @@ def test_landmark_model():
     onnx_kwargs = dict(
         predict_type="ort",
         model_path="./checkpoints/liveportrait_onnx/landmark.onnx",
+        debug=True
     )
     onnx_model = LandmarkModel(**onnx_kwargs)
 
@@ -203,6 +205,7 @@ def test_landmark_model():
     trt_rets = trt_model.predict(input)
     onnx_rets = onnx_model.predict(input)
     print(f"output max diff:{np.abs(trt_rets - onnx_rets).max()}")
+    pdb.set_trace()
 
     infer_times = []
     for _ in range(30):
@@ -253,6 +256,7 @@ def test_face_analysis_model():
     onnx_rets = onnx_model.predict(img_bgr)[0]
     for key in trt_rets:
         print(f"output {key} max diff:{np.abs(trt_rets[key] - onnx_rets[key]).max()}")
+    pdb.set_trace()
     infer_times = []
     for _ in range(30):
         t0 = time.time()
@@ -324,9 +328,9 @@ def test_stitching_model():
 
 
 if __name__ == '__main__':
-    test_warping_spade_model()
+    # test_warping_spade_model()
     # test_motion_extractor_model()
     # test_landmark_model()
     # test_face_analysis_model()
-    # test_appearance_extractor_model()
+    test_appearance_extractor_model()
     # test_stitching_model()
