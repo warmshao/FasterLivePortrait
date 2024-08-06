@@ -23,7 +23,7 @@ def test_warping_spade_model():
     # tensorrt 模型加载
     trt_kwargs = dict(
         predict_type="trt",
-        model_path="./checkpoints/liveportrait_onnx/warping_spade-fix.trt",
+        model_path="./checkpoints/liveportrait_animal_onnx/warping_spade-fix.trt",
     )
 
     trt_model = WarpingSpadeModel(**trt_kwargs)
@@ -31,7 +31,7 @@ def test_warping_spade_model():
     # onnx 模型加载
     onnx_kwargs = dict(
         predict_type="ort",
-        model_path="./checkpoints/liveportrait_onnx/warping_spade.onnx",
+        model_path="./checkpoints/liveportrait_animal_onnx/warping_spade.onnx",
     )
     onnx_model = WarpingSpadeModel(**onnx_kwargs)
 
@@ -44,7 +44,6 @@ def test_warping_spade_model():
 
     # for i in range(len(trt_rets)):
     print(f"output max diff:{np.abs(trt_rets - onnx_rets).max()}")
-
     infer_times = []
     for _ in range(30):
         t0 = time.time()
@@ -76,7 +75,7 @@ def test_motion_extractor_model():
     # tensorrt 模型加载
     trt_kwargs = dict(
         predict_type="trt",
-        model_path="./checkpoints/liveportrait_onnx/motion_extractor.trt",
+        model_path="./checkpoints/liveportrait_animal_onnx/motion_extractor.trt",
         debug=True
     )
 
@@ -85,7 +84,7 @@ def test_motion_extractor_model():
     # onnx 模型加载
     onnx_kwargs = dict(
         predict_type="ort",
-        model_path="./checkpoints/liveportrait_onnx/motion_extractor.onnx",
+        model_path="./checkpoints/liveportrait_animal_onnx/motion_extractor.onnx",
         debug=True
     )
     onnx_model = MotionExtractorModel(**onnx_kwargs)
@@ -98,7 +97,7 @@ def test_motion_extractor_model():
     onnx_rets = onnx_model.predict(input)
     for i in range(len(trt_rets)):
         print(f"output {i} max diff:{np.abs(trt_rets[i] - onnx_rets[i]).max()}")
-
+    pdb.set_trace()
     infer_times = []
     for _ in range(30):
         t0 = time.time()
@@ -325,9 +324,9 @@ def test_stitching_model():
 
 
 if __name__ == '__main__':
-    # test_warping_spade_model()
+    test_warping_spade_model()
     # test_motion_extractor_model()
     # test_landmark_model()
-    test_face_analysis_model()
+    # test_face_analysis_model()
     # test_appearance_extractor_model()
     # test_stitching_model()

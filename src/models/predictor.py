@@ -34,39 +34,54 @@ class TensorRTPredictor:
     """
     Implements inference for the EfficientDet TensorRT engine.
     """
+    _cuda_initialized = False
+    _lock = threading.Lock()
+
+    @classmethod
+    def _ensure_cuda_initialized(cls):
+        with cls._lock:
+            if not cls._cuda_initialized:
+                cuda.init()
+                cls._cuda_initialized = True
 
     def __init__(self, **kwargs):
         """
         :param engine_path: The path to the serialized engine to load from disk.
         """
-        if kwargs.get("cuda_ctx", None) is None:
-            cuda.init()
-            self.cfx = cuda.Device(0).make_context()
-        else:
-            self.cfx = kwargs.get("cuda_ctx")
-        # Load TRT engine
-        self.logger = trt.Logger(trt.Logger.ERROR)
-        # TODO: set the .so file in global path
-        if platform.system().lower() == 'linux':
-            ctypes.CDLL("./checkpoints/liveportrait_onnx/libgrid_sample_3d_plugin.so", mode=ctypes.RTLD_GLOBAL)
-        else:
-            ctypes.CDLL("./checkpoints/liveportrait_onnx/grid_sample_3d_plugin.dll", mode=ctypes.RTLD_GLOBAL, winmode=0)
-        trt.init_libnvinfer_plugins(self.logger, "")
-        engine_path = kwargs.get("model_path", None)
-        self.debug = kwargs.get("debug", False)
-        assert engine_path, f"model:{engine_path} must exist!"
-        with open(engine_path, "rb") as f, trt.Runtime(self.logger) as runtime:
-            assert runtime
-            self.engine = runtime.deserialize_cuda_engine(f.read())
-        assert self.engine
-        self.context = self.engine.create_execution_context()
-        assert self.context
+        self._ensure_cuda_initialized()
+        self.cuda_context = None
+        self.stream = None
+        try:
+            if kwargs.get("cuda_ctx", None) is None:
+                self.cuda_context = cuda.Device(0).make_context()
+            else:
+                self.cuda_context = kwargs.get("cuda_ctx")
 
-        # Setup I/O bindings
-        self.inputs = []
-        self.outputs = []
-        self.allocations = []
-        with self._cuda_context():
+            self.stream = cuda.Stream()
+
+            # Load TRT engine
+            self.logger = trt.Logger(trt.Logger.ERROR)
+            # TODO: set the .so file in global path
+            if platform.system().lower() == 'linux':
+                ctypes.CDLL("./checkpoints/liveportrait_onnx/libgrid_sample_3d_plugin.so", mode=ctypes.RTLD_GLOBAL)
+            else:
+                ctypes.CDLL("./checkpoints/liveportrait_onnx/grid_sample_3d_plugin.dll", mode=ctypes.RTLD_GLOBAL,
+                            winmode=0)
+            trt.init_libnvinfer_plugins(self.logger, "")
+            engine_path = kwargs.get("model_path", None)
+            self.debug = kwargs.get("debug", False)
+            assert engine_path, f"model:{engine_path} must exist!"
+            with open(engine_path, "rb") as f, trt.Runtime(self.logger) as runtime:
+                assert runtime
+                self.engine = runtime.deserialize_cuda_engine(f.read())
+            assert self.engine
+            self.context = self.engine.create_execution_context()
+            assert self.context
+
+            # Setup I/O bindings
+            self.inputs = []
+            self.outputs = []
+            self.allocations = []
             for i in range(self.engine.num_bindings):
                 is_input = False
                 if self.engine.binding_is_input(i):
@@ -105,10 +120,13 @@ class TensorRTPredictor:
             #     "Input" if is_input else "Output",
             #     binding['name'], binding['shape'], binding['dtype']))
 
-        assert self.batch_size > 0
-        assert len(self.inputs) > 0
-        assert len(self.outputs) > 0
-        assert len(self.allocations) > 0
+            assert self.batch_size > 0
+            assert len(self.inputs) > 0
+            assert len(self.outputs) > 0
+            assert len(self.allocations) > 0
+        except Exception as e:
+            self.cleanup()
+            raise e
 
     def input_spec(self):
         """
@@ -134,45 +152,50 @@ class TensorRTPredictor:
                 print(f"trt output {i} -> {o['name']}")
         return specs
 
-    @contextlib.contextmanager
-    def _cuda_context(self):
-        if self.cfx:
-            self.cfx.push()
-        try:
-            yield
-        finally:
-            if self.cfx:
-                self.cfx.pop()
-
     def predict(self, *data):
-        """
-        Execute inference on a batch of images.
-        :param data: A list of inputs as numpy arrays.
-        :return A list of outputs as numpy arrays.
-        """
-        with self._cuda_context():
-            # Copy I/O and Execute
+        if self.cuda_context:
+            self.cuda_context.push()
+        try:
+            # 使用 self.stream 进行异步操作
             for i in range(len(data)):
                 data_ = np.ascontiguousarray(data[i], self.inputs[i]["dtype"])
-                cuda.memcpy_htod(self.inputs[i]['allocation'], data_)
-            self.context.execute_v2(self.allocations)
+                cuda.memcpy_htod_async(self.inputs[i]['allocation'], data_, self.stream)
+
+            # 异步执行推理
+            self.context.execute_async_v2(self.allocations, self.stream.handle)
+
+            # 异步复制输出数据
             for o in range(len(self.outputs)):
-                cuda.memcpy_dtoh(self.outputs[o]['host_allocation'], self.outputs[o]['allocation'])
+                cuda.memcpy_dtoh_async(self.outputs[o]['host_allocation'],
+                                       self.outputs[o]['allocation'],
+                                       self.stream)
+
+            # 同步流，确保所有操作完成
+            self.stream.synchronize()
+
             return [o['host_allocation'] for o in self.outputs]
+        finally:
+            if self.cuda_context:
+                self.cuda_context.pop()
 
     def cleanup(self):
-        with self._cuda_context():
+        if self.cuda_context:
+            self.cuda_context.push()
+        try:
             if hasattr(self, 'context'):
                 del self.context
             if hasattr(self, 'engine'):
                 del self.engine
-            for allocation in self.allocations:
-                allocation.free()
-            self.allocations.clear()
-            if hasattr(self, 'stream'):
-                self.stream.free()
-        if self.cfx:
-            self.cfx.detach()
+            if hasattr(self, 'allocations'):
+                for allocation in self.allocations:
+                    allocation.free()
+                self.allocations.clear()
+        finally:
+            if self.cuda_context:
+                self.cuda_context.pop()
+                self.cuda_context.detach()
+            self.cuda_context = None
+            self.stream = None
 
     def __del__(self):
         try:
@@ -229,7 +252,10 @@ class OnnxRuntimePredictor:
     def predict(self, *data):
         input_feeds = {}
         for i in range(len(data)):
-            input_feeds[self.inputs[i].name] = data[i].astype(np.float32)
+            if "float16" in self.inputs[i].type:
+                input_feeds[self.inputs[i].name] = data[i].astype(np.float16)
+            else:
+                input_feeds[self.inputs[i].name] = data[i].astype(np.float32)
 
         results = self.onnx_model.run(None, input_feeds)
         return results

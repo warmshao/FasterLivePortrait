@@ -3,6 +3,13 @@
 # @Email   : wenshaoguo1026@gmail.com
 # @Project : FasterLivePortrait
 # @FileName: run.py
+
+"""
+ python run.py \
+ --src_image assets/examples/source/s39.jpg \
+ --dri_video assets/examples/driving/d0.mp4 \
+ --cfg configs/trt_infer.yaml
+"""
 import os
 import argparse
 import pdb

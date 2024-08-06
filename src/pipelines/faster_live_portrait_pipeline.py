@@ -31,10 +31,11 @@ class FasterLivePortraitPipeline:
         self.init_models(**kwargs)
 
     def init_models(self, **kwargs):
-        for key in list(self.model_dict.keys()):
-            del self.model_dict[key]
-            torch.cuda.empty_cache()
+        # for key in list(self.model_dict.keys()):
+        #     del self.model_dict[key]
+        #     torch.cuda.empty_cache()
         del self.model_dict
+        pdb.set_trace()
         if kwargs.get("is_animal", None) is not None:
             self.is_animal = kwargs.get("is_animal")
         if not self.is_animal:
@@ -415,6 +416,9 @@ class FasterLivePortraitPipeline:
 
                     if self.cfg.infer_params.flag_stitching:
                         x_d_i_new = self.stitching(x_s, x_d_i_new)
+            else:
+                if self.cfg.infer_params.flag_stitching:
+                    x_d_i_new = self.stitching(x_s, x_d_i_new)
 
             x_d_i_new = x_s + (x_d_i_new - x_s) * self.cfg.infer_params.driving_multiplier
             out_crop = self.model_dict["warping_spade"].predict(f_s, x_s, x_d_i_new)
