@@ -10,6 +10,7 @@ import cv2
 import datetime
 import os
 import time
+from tqdm import tqdm
 import subprocess
 import numpy as np
 from .faster_live_portrait_pipeline import FasterLivePortraitPipeline
@@ -17,6 +18,13 @@ from ..utils.utils import video_has_audio
 from ..utils.utils import resize_to_limit, prepare_paste_back, get_rotation_matrix, calc_lip_close_ratio, \
     calc_eye_close_ratio, transform_keypoint, concat_feat
 from ..utils.crop import crop_image, parse_bbox_from_landmark, crop_image_by_bbox, paste_back
+from src.utils import utils
+import platform
+
+if platform.system().lower() == 'windows':
+    FFMPEG = "third_party/ffmpeg-7.0.1-full_build/bin/ffmpeg.exe"
+else:
+    FFMPEG = "ffmpeg"
 
 
 class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
@@ -24,76 +32,128 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
         super(GradioLivePortraitPipeline, self).__init__(cfg, **kwargs)
 
     def update_cfg(self, args_user):
+        update_ret = False
         for key in args_user:
             if key in self.cfg.infer_params:
-                print("update infer cfg from {} to {}".format(self.cfg.infer_params[key], args_user[key]))
+                if self.cfg.infer_params[key] != args_user[key]:
+                    update_ret = True
+                print("update infer cfg {} from {} to {}".format(key, self.cfg.infer_params[key], args_user[key]))
                 self.cfg.infer_params[key] = args_user[key]
-            if key in self.cfg.crop_params:
-                print("update crop cfg from {} to {}".format(self.cfg.crop_params[key], args_user[key]))
+            elif key in self.cfg.crop_params:
+                if self.cfg.crop_params[key] != args_user[key]:
+                    update_ret = True
+                print("update crop cfg {} from {} to {}".format(key, self.cfg.crop_params[key], args_user[key]))
                 self.cfg.crop_params[key] = args_user[key]
+            else:
+                if key in self.cfg.infer_params and self.cfg.infer_params[key] != args_user[key]:
+                    update_ret = True
+                print("add {}:{} to infer cfg".format(key, args_user[key]))
+                self.cfg.infer_params[key] = args_user[key]
+        return update_ret
 
     def execute_video(
             self,
-            input_image_path,
-            input_video_path,
-            flag_relative_input,
-            flag_do_crop_input,
-            flag_remap_input,
-            flag_crop_driving_video_input
+            input_source_image_path=None,
+            input_source_video_path=None,
+            input_driving_video_path=None,
+            flag_relative_input=True,
+            flag_do_crop_input=True,
+            flag_remap_input=True,
+            driving_multiplier=1.0,
+            flag_stitching=True,
+            flag_crop_driving_video_input=True,
+            flag_video_editing_head_rotation=False,
+            flag_is_animal=False,
+            scale=2.3,
+            vx_ratio=0.0,
+            vy_ratio=-0.125,
+            scale_crop_driving_video=2.2,
+            vx_ratio_crop_driving_video=0.0,
+            vy_ratio_crop_driving_video=-0.1,
+            driving_smooth_observation_variance=1e-7,
+            tab_selection=None,
     ):
         """ for video driven potrait animation
         """
-        if input_image_path is not None and input_video_path is not None:
+        if tab_selection == 'Image':
+            input_source_path = input_source_image_path
+        elif tab_selection == 'Video':
+            input_source_path = input_source_video_path
+        else:
+            input_source_path = input_source_image_path
+
+        if flag_is_animal != self.is_animal:
+            self.init_models(is_animal=flag_is_animal)
+
+        if input_source_path is not None and input_driving_video_path is not None:
             args_user = {
-                'source_image': input_image_path,
-                'driving_info': input_video_path,
+                'source': input_source_path,
+                'driving': input_driving_video_path,
                 'flag_relative_motion': flag_relative_input,
                 'flag_do_crop': flag_do_crop_input,
                 'flag_pasteback': flag_remap_input,
-                'flag_crop_driving_video': flag_crop_driving_video_input
+                'driving_multiplier': driving_multiplier,
+                'flag_stitching': flag_stitching,
+                'flag_crop_driving_video': flag_crop_driving_video_input,
+                'flag_video_editing_head_rotation': flag_video_editing_head_rotation,
+                'src_scale': scale,
+                'src_vx_ratio': vx_ratio,
+                'src_vy_ratio': vy_ratio,
+                'dri_scale': scale_crop_driving_video,
+                'dri_vx_ratio': vx_ratio_crop_driving_video,
+                'dri_vy_ratio': vy_ratio_crop_driving_video,
+                'driving_smooth_observation_variance': driving_smooth_observation_variance,
             }
             # update config from user input
-            self.update_cfg(args_user)
+            update_ret = self.update_cfg(args_user)
             # video driven animation
-            video_path, video_path_concat, total_time = self.run_local(input_video_path, input_image_path)
+            video_path, video_path_concat, total_time = self.run_local(input_driving_video_path, input_source_path,
+                                                                       update_ret=update_ret)
             gr.Info(f"Run successfully! Cost: {total_time} seconds!", duration=3)
             return video_path, video_path_concat,
         else:
             raise gr.Error("The input source portrait or driving video hasn't been prepared yet 💥!", duration=5)
 
-    def run_local(self, driving_video_path, src_img_path, **kwargs):
+    def run_local(self, driving_video_path, source_path, **kwargs):
         t00 = time.time()
-        if self.src_img_path != src_img_path:
+
+        if self.source_path != source_path or kwargs.get("update_ret", False):
             # 如果不一样要重新初始化变量
             self.init_vars(**kwargs)
-            img_src = self.prepare_src_image(src_img_path)
-            if img_src is None:
-                raise gr.Error("No face detected in source image 💥!", duration=5)
-        self.src_img_path = src_img_path
+            ret = self.prepare_source(source_path)
+            if not ret:
+                raise gr.Error(f"Error in processing source:{source_path} 💥!", duration=5)
 
         vcap = cv2.VideoCapture(driving_video_path)
         fps = int(vcap.get(cv2.CAP_PROP_FPS))
-
-        h, w = self.src_img.shape[:2]
-        save_dir = f"./results/{datetime.datetime.now().strftime('%Y-%m-%d')}"
+        dframe = int(vcap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if self.is_source_video:
+            max_frame = min(dframe, len(self.src_imgs))
+        else:
+            max_frame = dframe
+        h, w = self.src_imgs[0].shape[:2]
+        save_dir = f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}"
         os.makedirs(save_dir, exist_ok=True)
 
         # render output video
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         vsave_crop_path = os.path.join(save_dir,
-                                       f"{os.path.basename(src_img_path)}-{os.path.basename(driving_video_path)}-crop.mp4")
+                                       f"{os.path.basename(source_path)}-{os.path.basename(driving_video_path)}-crop.mp4")
         vout_crop = cv2.VideoWriter(vsave_crop_path, fourcc, fps, (512 * 2, 512))
         vsave_org_path = os.path.join(save_dir,
-                                      f"{os.path.basename(src_img_path)}-{os.path.basename(driving_video_path)}-org.mp4")
+                                      f"{os.path.basename(source_path)}-{os.path.basename(driving_video_path)}-org.mp4")
         vout_org = cv2.VideoWriter(vsave_org_path, fourcc, fps, (w, h))
 
         infer_times = []
-        while vcap.isOpened():
+        for i in tqdm(range(max_frame)):
             ret, frame = vcap.read()
             if not ret:
                 break
             t0 = time.time()
-            dri_crop, out_crop, out_org = self.run(frame, self.src_img)
+            if self.is_source_video:
+                dri_crop, out_crop, out_org = self.run(frame, self.src_imgs[i], self.src_infos[i])
+            else:
+                dri_crop, out_crop, out_org = self.run(frame, self.src_imgs[0], self.src_infos[0])
             infer_times.append(time.time() - t0)
             dri_crop = cv2.resize(dri_crop, (512, 512))
             out_crop = np.concatenate([dri_crop, out_crop], axis=1)
@@ -108,15 +168,19 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
 
         if video_has_audio(driving_video_path):
             vsave_crop_path_new = os.path.splitext(vsave_crop_path)[0] + "-audio.mp4"
-            subprocess.call(["ffmpeg", "-i", vsave_crop_path, "-i", driving_video_path, "-b:v", "10M", "-c:v",
-                             "libx264", "-map", "0:v", "-map", "1:a",
-                             "-c:a", "aac",
-                             "-pix_fmt", "yuv420p", vsave_crop_path_new, "-y"])
+            subprocess.call(
+                [FFMPEG, "-i", vsave_crop_path, "-i", driving_video_path,
+                 "-b:v", "10M", "-c:v",
+                 "libx264", "-map", "0:v", "-map", "1:a",
+                 "-c:a", "aac",
+                 "-pix_fmt", "yuv420p", vsave_crop_path_new, "-y", "-shortest"])
             vsave_org_path_new = os.path.splitext(vsave_org_path)[0] + "-audio.mp4"
-            subprocess.call(["ffmpeg", "-i", vsave_org_path, "-i", driving_video_path, "-b:v", "10M", "-c:v",
-                             "libx264", "-map", "0:v", "-map", "1:a",
-                             "-c:a", "aac",
-                             "-pix_fmt", "yuv420p", vsave_org_path_new, "-y"])
+            subprocess.call(
+                [FFMPEG, "-i", vsave_org_path, "-i", driving_video_path,
+                 "-b:v", "10M", "-c:v",
+                 "libx264", "-map", "0:v", "-map", "1:a",
+                 "-c:a", "aac",
+                 "-pix_fmt", "yuv420p", vsave_org_path_new, "-y", "-shortest"])
 
             return vsave_org_path_new, vsave_crop_path_new, total_time
         else:

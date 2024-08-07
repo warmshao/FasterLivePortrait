@@ -8,6 +8,10 @@ import pdb
 import numpy as np
 
 from .base_model import BaseModel
+import torch
+from torch.cuda import nvtx
+from .predictor import numpy_to_torch_dtype_dict
+import torch.nn.functional as F
 
 
 def headpose_pred_to_degree(pred):
@@ -32,8 +36,6 @@ class MotionExtractorModel(BaseModel):
 
     def __init__(self, **kwargs):
         super(MotionExtractorModel, self).__init__(**kwargs)
-        self.predict_type = kwargs.get("predict_type", "trt")
-        print(self.predict_type)
         self.flag_refine_info = kwargs.get("flag_refine_info", True)
 
     def input_process(self, *data):
@@ -56,8 +58,27 @@ class MotionExtractorModel(BaseModel):
             exp = exp.reshape(bs, -1, 3)  # BxNx3
         return pitch, yaw, roll, t, exp, scale, kp
 
+    def predict_trt(self, *data):
+        nvtx.range_push("forward")
+        feed_dict = {}
+        for i, inp in enumerate(self.predictor.inputs):
+            if isinstance(data[i], torch.Tensor):
+                feed_dict[inp['name']] = data[i]
+            else:
+                feed_dict[inp['name']] = torch.from_numpy(data[i]).to(device=self.device,
+                                                                      dtype=numpy_to_torch_dtype_dict[inp['dtype']])
+        preds_dict = self.predictor.predict(feed_dict, self.cudaStream)
+        outs = []
+        for i, out in enumerate(self.predictor.outputs):
+            outs.append(preds_dict[out["name"]].cpu().numpy())
+        nvtx.range_pop()
+        return outs
+
     def predict(self, *data):
         img = self.input_process(*data)
-        preds = self.predictor.predict(img)
-        output = self.output_process(*preds)
-        return output
+        if self.predict_type == "trt":
+            preds = self.predict_trt(img)
+        else:
+            preds = self.predictor.predict(img)
+        outputs = self.output_process(*preds)
+        return outputs

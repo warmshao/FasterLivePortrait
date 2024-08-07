@@ -1,0 +1,102 @@
+models:
+  warping_spade:
+    name: "WarpingSpadeModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_onnx/warping_spade-fix.trt"
+  motion_extractor:
+    name: "MotionExtractorModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_onnx/motion_extractor.trt"
+  landmark:
+    name: "LandmarkModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_onnx/landmark.trt"
+  face_analysis:
+    name: "MediaPipeFaceModel"
+    predict_type: "mp"
+  app_feat_extractor:
+    name: "AppearanceFeatureExtractorModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_onnx/appearance_feature_extractor.trt"
+  stitching:
+    name: "StitchingModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_onnx/stitching.trt"
+  stitching_eye_retarget:
+    name: "StitchingModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_onnx/stitching_eye.trt"
+  stitching_lip_retarget:
+    name: "StitchingModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_onnx/stitching_lip.trt"
+
+animal_models:
+  warping_spade:
+    name: "WarpingSpadeModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_animal_onnx/warping_spade-fix.trt"
+  motion_extractor:
+    name: "MotionExtractorModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_animal_onnx/motion_extractor.trt"
+  app_feat_extractor:
+    name: "AppearanceFeatureExtractorModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_animal_onnx/appearance_feature_extractor.trt"
+  stitching:
+    name: "StitchingModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_animal_onnx/stitching.trt"
+  stitching_eye_retarget:
+    name: "StitchingModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_animal_onnx/stitching_eye.trt"
+  stitching_lip_retarget:
+    name: "StitchingModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_animal_onnx/stitching_lip.trt"
+  landmark:
+    name: "LandmarkModel"
+    predict_type: "trt"
+    model_path: "./checkpoints/liveportrait_onnx/landmark.trt"
+  face_analysis:
+    name: "FaceAnalysisModel"
+    predict_type: "trt"
+    model_path:
+      - "./checkpoints/liveportrait_onnx/retinaface_det_static.trt"
+      - "./checkpoints/liveportrait_onnx/face_2dpose_106_static.trt"
+
+crop_params:
+  src_dsize: 512
+  src_scale: 2.3
+  src_vx_ratio: 0.0
+  src_vy_ratio: -0.125
+  dri_scale: 2.2
+  dri_vx_ratio: 0.0
+  dri_vy_ratio: -0.1
+
+
+infer_params:
+  flag_crop_driving_video: False
+  flag_normalize_lip: True
+  flag_source_video_eye_retargeting: False
+  flag_video_editing_head_rotation: False
+  flag_eye_retargeting: False
+  flag_lip_retargeting: False
+  flag_stitching: True
+  flag_relative_motion: True
+  flag_pasteback: True
+  flag_do_crop: True
+  flag_do_rot: True
+
+  # NOT EXPOERTED PARAMS
+  lip_normalize_threshold: 0.03 # threshold for flag_normalize_lip
+  source_video_eye_retargeting_threshold: 0.18 # threshold for eyes retargeting if the input is a source video
+  driving_smooth_observation_variance: 1e-7 # smooth strength scalar for the animated video when the input is a source video, the larger the number, the smoother the animated video; too much smoothness would result in loss of motion accuracy
+  anchor_frame: 0 # TO IMPLEMENT
+  mask_crop_path: "./assets/mask_template.png"
+  driving_multiplier: 1.0
+
+  source_max_dim: 1280 # the max dim of height and width of source image
+  source_division: 2 # make sure the height and width of source image can be divided by this number

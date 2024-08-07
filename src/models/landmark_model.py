@@ -8,6 +8,9 @@ from .base_model import BaseModel
 import cv2
 import numpy as np
 from src.utils.crop import crop_image, _transform_pts
+import torch
+from torch.cuda import nvtx
+from .predictor import numpy_to_torch_dtype_dict
 
 
 class LandmarkModel(BaseModel):
@@ -17,8 +20,6 @@ class LandmarkModel(BaseModel):
 
     def __init__(self, **kwargs):
         super(LandmarkModel, self).__init__(**kwargs)
-        self.predict_type = kwargs.get("predict_type", "trt")
-        print(self.predict_type)
         self.dsize = 224
 
     def input_process(self, *data):
@@ -51,8 +52,27 @@ class LandmarkModel(BaseModel):
         lmk = _transform_pts(lmk, M=crop_dct['M_c2o'])
         return lmk
 
+    def predict_trt(self, *data):
+        nvtx.range_push("forward")
+        feed_dict = {}
+        for i, inp in enumerate(self.predictor.inputs):
+            if isinstance(data[i], torch.Tensor):
+                feed_dict[inp['name']] = data[i]
+            else:
+                feed_dict[inp['name']] = torch.from_numpy(data[i]).to(device=self.device,
+                                                                      dtype=numpy_to_torch_dtype_dict[inp['dtype']])
+        preds_dict = self.predictor.predict(feed_dict, self.cudaStream)
+        outs = []
+        for i, out in enumerate(self.predictor.outputs):
+            outs.append(preds_dict[out["name"]].cpu().numpy())
+        nvtx.range_pop()
+        return outs
+
     def predict(self, *data):
         input, crop_dct = self.input_process(*data)
-        preds = self.predictor.predict(input)
+        if self.predict_type == "trt":
+            preds = self.predict_trt(input)
+        else:
+            preds = self.predictor.predict(input)
         outputs = self.output_process(preds, crop_dct)
         return outputs

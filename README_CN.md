@@ -9,11 +9,25 @@
 * 无缝支持原生的gradio app, 速度快了好几倍，同时支持对多张人脸的同时推理，一些效果可以看：[pr105](https://github.com/KwaiVGI/LivePortrait/pull/105)
 * 对代码结构进行了重构，不再依赖pytorch，所有的模型用onnx或tensorrt推理。
 
-**如果你觉得这个项目有用，帮我点个star吧❤️❤️**
+**如果你觉得这个项目有用，帮我点个star吧✨✨**
+
+<video src="https://github.com/user-attachments/assets/170aec12-6fb3-442f-8a2f-26ef91a4d6f9" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **日志**
+- [x] **2024/08/07:** 增加animal模型的支持，同时支持mediapipe模型，现在你不用再担心版权的问题。
+  - 增加对animal模型的支持。
+    - 需要下载animal的onnx文件：`huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`，然后转换成trt文件。
+    - 更新镜像`docker pull shaoguo/faster_liveportrait:v2`
+    - windows系统可以从release页下载最新的[windows 整合包](https://github.com/warmshao/FasterLivePortrait/releases)，解压后使用。
+    - 简单的使用教程：
+    
+    <video src="https://github.com/user-attachments/assets/dc37e2dd-551a-43b0-8929-fc5d5fe16ec5" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
+    
+  - 使用mediapipe模型替代insight_face
+    - 网页端使用: `python app.py --mode trt --mp` 或 `python app.py --mode onnx --mp`
+    - 本地摄像头运行: `python run.py --src_image assets/examples/source/s12.jpg --dri_video assets/examples/driving/d0.mp4 --cfg configs/trt_mp_infer.yaml`
 - [x] **2024/07/24:** Windows的整合包, 免安装一键运行，支持TensorRT和OnnxruntimeGPU。感谢@zhanghongyong123456在[issue](https://github.com/warmshao/FasterLivePortrait/issues/22)的贡献。
   - 【可选】如果你的windows电脑已经装过cuda和cudnn，请忽略这一步。我只在cuda12.2上验证过，如果没安装cuda或报cuda相关的错，你需要按照以下步骤进行安装：
     - 下载[cuda12.2](https://developer.nvidia.com/cuda-12-2-0-download-archive?target_os=Windows&target_arch=x86_64), 双击exe后按照默认设置一步步安装即可。
@@ -21,7 +35,7 @@
   - 从release页下载免安装[windows 整合包](https://github.com/warmshao/FasterLivePortrait/releases)并解压。
   - 进入`FasterLivePortrait-windows`后双击`all_onnx2trt.bat`对onnx文件进行转换，这会等上一段时间。
   - 网页端demo：双击`app.bat`, 打开网页：`http://localhost:9870/`
-  - 摄像头实时运行，双击`camera.bat`。如果你想更换目标图像，命令行运行:`camera.bat assets/examples/source/s9.jpg`
+  - 摄像头实时运行，双击`camera.bat`，按`q`停止。如果你想更换目标图像，命令行运行:`camera.bat assets/examples/source/s9.jpg`。
 - [x] **2024/07/18:** MacOS支持(不需要Docker，python就可以了），M1/M2的速度比较快，但还是很慢😟
   - 安装ffmpeg: `brew install ffmpeg`
   - 安装python=3.10的虚拟环境，推荐可以用[miniforge](https://github.com/conda-forge/miniforge).`conda create -n flip python=3.10 && conda activate flip`
@@ -34,7 +48,7 @@
 ### 环境安装
 * 方式1：Docker(推荐），提供了一个镜像，不用再自己安装onnxruntime-gpu和TensorRT。
   * 根据自己的系统安装[docker](https://docs.docker.com/desktop/install/windows-install/)
-  * 下载镜像：`docker pull shaoguo/faster_liveportrait:v1`
+  * 下载镜像：`docker pull shaoguo/faster_liveportrait:v2`
   * 执行命令, `$FasterLivePortrait_ROOT`要替换成你下载的FasterLivePortrait在本地的目录:
   ```shell
   docker run -it --gpus=all \
@@ -87,7 +101,7 @@
   * `mkdir build && cd build`
   * `cmake .. -DTensorRT_ROOT=$TENSORRT_HOME`,$TENSORRT_HOME 替换成你自己TensorRT的根目录。
   * `make`，记住so文件的地址，将`scripts/onnx2trt.py`和`src/models/predictor.py`里`/opt/grid-sample3d-trt-plugin/build/libgrid_sample_3d_plugin.so`替换成自己的so路径
-* 下载Onnx文件：`huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`。将onnx模型转为tensorrt，运行`sh scripts/all_onnx2trt.sh`
+* 下载Onnx文件：`huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`。将onnx模型转为tensorrt，运行`sh scripts/all_onnx2trt.sh`和`sh scripts/all_onnx2trt_animal.sh`
 * 用tensorrt测试pipeline：
   ```shell
    python run.py \

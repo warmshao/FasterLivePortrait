@@ -3,12 +3,16 @@
 # @Email   : wenshaoguo0611@gmail.com
 # @Project : FasterLivePortrait
 # @FileName: face_analysis_model.py
+import pdb
 
 import numpy as np
 from insightface.app.common import Face
 import cv2
 from .predictor import get_predictor
 from ..utils import face_align
+import torch
+from torch.cuda import nvtx
+from .predictor import numpy_to_torch_dtype_dict
 
 
 def sort_by_direction(faces, direction: str = 'large-small', face_center=None):
@@ -84,8 +88,11 @@ def distance2kps(points, distance, max_shape=None):
 
 class FaceAnalysisModel:
     def __init__(self, **kwargs):
-        self.predict_type = kwargs.get("predict_type", "trt")
         self.model_paths = kwargs.get("model_path", [])
+        self.predict_type = kwargs.get("predict_type", "trt")
+        self.device = torch.cuda.current_device()
+        self.cudaStream = torch.cuda.current_stream().cuda_stream
+
         assert self.model_paths
         self.face_det = get_predictor(predict_type=self.predict_type, model_path=self.model_paths[0])
         self.face_det.input_spec()
@@ -183,7 +190,18 @@ class FaceAnalysisModel:
         det_img = np.transpose(det_img, (2, 0, 1))
         det_img = (det_img - self.input_mean) / self.input_std
         if self.predict_type == "trt":
-            o448, o451, o454, o471, o474, o477, o494, o497, o500 = self.face_det.predict(det_img[None])
+            nvtx.range_push("forward")
+            feed_dict = {}
+            inp = self.face_det.inputs[0]
+            det_img_torch = torch.from_numpy(det_img[None]).to(device=self.device,
+                                                               dtype=numpy_to_torch_dtype_dict[inp['dtype']])
+            feed_dict[inp['name']] = det_img_torch
+            preds_dict = self.face_det.predict(feed_dict, self.cudaStream)
+            outs = []
+            for key in ["448", "471", "494", "451", "474", "497", "454", "477", "500"]:
+                outs.append(preds_dict[key].cpu().numpy())
+            o448, o471, o494, o451, o474, o497, o454, o477, o500 = outs
+            nvtx.range_pop()
         else:
             o448, o471, o494, o451, o474, o497, o454, o477, o500 = self.face_det.predict(det_img[None])
         faces_det = [o448, o471, o494, o451, o474, o497, o454, o477, o500]
@@ -259,7 +277,21 @@ class FaceAnalysisModel:
 
         aimg = cv2.cvtColor(aimg, cv2.COLOR_BGR2RGB)
         aimg = np.transpose(aimg, (2, 0, 1))
-        pred = self.face_pose.predict(aimg[None])[0]
+        if self.predict_type == "trt":
+            nvtx.range_push("forward")
+            feed_dict = {}
+            inp = self.face_pose.inputs[0]
+            det_img_torch = torch.from_numpy(aimg[None]).to(device=self.device,
+                                                            dtype=numpy_to_torch_dtype_dict[inp['dtype']])
+            feed_dict[inp['name']] = det_img_torch
+            preds_dict = self.face_pose.predict(feed_dict, self.cudaStream)
+            outs = []
+            for i, out in enumerate(self.face_pose.outputs):
+                outs.append(preds_dict[out["name"]].cpu().numpy())
+            pred = outs[0]
+            nvtx.range_pop()
+        else:
+            pred = self.face_pose.predict(aimg[None])[0]
         pred = pred.reshape((-1, 2))
         if self.lmk_num < pred.shape[0]:
             pred = pred[self.lmk_num * -1:, :]
@@ -286,4 +318,9 @@ class FaceAnalysisModel:
             self.estimate_face_pose(data[0], face)
             ret.append(face)
         ret = sort_by_direction(ret, 'large-small', None)
-        return ret
+        outs = [x.landmark for x in ret]
+        return outs
+
+    def __del__(self):
+        del self.face_det
+        del self.face_pose
