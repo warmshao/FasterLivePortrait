@@ -21,12 +21,13 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Faster Live Portrait Pipeline')
 parser.add_argument('--mode', required=False, type=str, default="onnx")
+parser.add_argument('--use_mp', action='store_true', help='use mediapipe or not')
 args, unknown = parser.parse_known_args()
 
 if args.mode == "onnx":
-    cfg_path = "configs/onnx_infer.yaml"
+    cfg_path = "configs/onnx_mp_infer.yaml" if args.use_mp else "configs/onnx_infer.yaml"
 else:
-    cfg_path = "configs/trt_infer.yaml"
+    cfg_path = "configs/trt_mp_infer.yaml" if args.use_mp else "configs/trt_infer.yaml"
 infer_cfg = OmegaConf.load(cfg_path)
 gradio_pipeline = GradioLivePortraitPipeline(infer_cfg)
 
@@ -173,7 +174,7 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
                 flag_relative_input = gr.Checkbox(value=True, label="relative motion")
                 flag_stitching = gr.Checkbox(value=True, label="stitching")
                 driving_multiplier = gr.Number(value=1.0, label="driving multiplier", minimum=0.0, maximum=2.0,
-                                                    step=0.02)
+                                               step=0.02)
                 flag_remap_input = gr.Checkbox(value=True, label="paste-back")
                 flag_video_editing_head_rotation = gr.Checkbox(value=False, label="relative head rotation (v2v)")
                 driving_smooth_observation_variance = gr.Number(value=1e-7, label="motion smooth strength (v2v)",

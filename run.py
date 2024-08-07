@@ -42,8 +42,6 @@ if __name__ == '__main__':
     args, unknown = parser.parse_known_args()
 
     infer_cfg = OmegaConf.load(args.cfg)
-    if args.realtime:
-        infer_cfg.infer_params.flag_pasteback = False
 
     pipe = FasterLivePortraitPipeline(cfg=infer_cfg)
     ret = pipe.prepare_source(args.src_image, realtime=args.realtime)
@@ -90,8 +88,12 @@ if __name__ == '__main__':
             out_org = cv2.cvtColor(out_org, cv2.COLOR_RGB2BGR)
             vout_org.write(out_org)
         else:
-            # image show in realtime mode
-            cv2.imshow('Render', out_crop)
+            if infer_cfg.infer_params.flag_pasteback:
+                out_org = cv2.cvtColor(out_org, cv2.COLOR_RGB2BGR)
+                cv2.imshow('Render', out_org)
+            else:
+                # image show in realtime mode
+                cv2.imshow('Render', out_crop)
             # 按下'q'键退出循环
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
