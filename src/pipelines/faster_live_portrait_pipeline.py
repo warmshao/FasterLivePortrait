@@ -28,7 +28,7 @@ class FasterLivePortraitPipeline:
 
     def init(self, **kwargs):
         self.init_vars(**kwargs)
-        self.init_models(is_animal=self.is_animal, **kwargs)
+        self.init_models(is_animal=False, **kwargs)
 
     def clean_models(self, **kwargs):
         """
@@ -82,8 +82,6 @@ class FasterLivePortraitPipeline:
         self.src_infos = []
         self.src_imgs = []
         self.is_source_video = False
-
-        self.is_animal = True
 
     def calc_combined_eye_ratio(self, c_d_eyes_i, source_lmk):
         c_s_eyes = calc_eye_close_ratio(source_lmk[None])
@@ -158,11 +156,7 @@ class FasterLivePortraitPipeline:
                 crop_infos = []
                 for i in range(len(src_faces)):
                     # NOTE: temporarily only pick the first face, to support multiple face in the future
-                    if self.is_animal:
-                        lmk = src_faces[i]
-                    else:
-                        src_face = src_faces[i]
-                        lmk = src_face.landmark  # this is the 106 landmarks from insightface
+                    lmk = src_faces[i]
                     # crop the face
                     ret_dct = crop_image(
                         img_rgb,  # ndarray
@@ -296,8 +290,7 @@ class FasterLivePortraitPipeline:
                 if len(src_face) == 0:
                     self.src_lmk_pre = None
                     return None, None, None
-                src_face = src_face[0]
-                lmk = src_face.landmark
+                lmk = src_face[0]
                 lmk = self.model_dict["landmark"].predict(img_rgb, lmk)
                 self.src_lmk_pre = lmk.copy()
             else:
@@ -333,8 +326,7 @@ class FasterLivePortraitPipeline:
                 if len(src_face) == 0:
                     self.src_lmk_pre = None
                     return None, None, None
-                src_face = src_face[0]
-                lmk = src_face.landmark
+                lmk = src_face[0]
                 lmk = self.model_dict["landmark"].predict(img_rgb, lmk)
                 self.src_lmk_pre = lmk.copy()
             else:

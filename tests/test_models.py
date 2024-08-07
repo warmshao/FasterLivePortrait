@@ -327,10 +327,70 @@ def test_stitching_model():
                                                                     np.max(infer_times), np.median(infer_times)))
 
 
+def test_mediapipe_face():
+    img_path = ""
+    import cv2
+    import mediapipe as mp
+    mp_drawing = mp.solutions.drawing_utils
+    mp_drawing_styles = mp.solutions.drawing_styles
+    mp_face_mesh = mp.solutions.face_mesh
+    os.makedirs('./results/mediapipe_test', exist_ok=True)
+    # For static images:
+    IMAGE_FILES = ["assets/examples/source/s9.jpg"]
+    drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
+    with mp_face_mesh.FaceMesh(
+            static_image_mode=True,
+            max_num_faces=1,
+            refine_landmarks=True,
+            min_detection_confidence=0.5) as face_mesh:
+        for idx, file in enumerate(IMAGE_FILES):
+            image = cv2.imread(file)
+            # Convert the BGR image to RGB before processing.
+            results = face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+
+            # Print and draw face mesh landmarks on the image.
+            if not results.multi_face_landmarks:
+                continue
+            annotated_image = image.copy()
+            for face_landmarks in results.multi_face_landmarks:
+                landmarks = []
+                for landmark in face_landmarks.landmark:
+                    # 提取每个关键点的 x, y, z 坐标
+                    landmarks.append({
+                        'x': landmark.x,
+                        'y': landmark.y,
+                        'z': landmark.z
+                    })
+                pdb.set_trace()
+                mp_drawing.draw_landmarks(
+                    image=annotated_image,
+                    landmark_list=face_landmarks,
+                    connections=mp_face_mesh.FACEMESH_TESSELATION,
+                    landmark_drawing_spec=None,
+                    connection_drawing_spec=mp_drawing_styles
+                    .get_default_face_mesh_tesselation_style())
+                mp_drawing.draw_landmarks(
+                    image=annotated_image,
+                    landmark_list=face_landmarks,
+                    connections=mp_face_mesh.FACEMESH_CONTOURS,
+                    landmark_drawing_spec=None,
+                    connection_drawing_spec=mp_drawing_styles
+                    .get_default_face_mesh_contours_style())
+                mp_drawing.draw_landmarks(
+                    image=annotated_image,
+                    landmark_list=face_landmarks,
+                    connections=mp_face_mesh.FACEMESH_IRISES,
+                    landmark_drawing_spec=None,
+                    connection_drawing_spec=mp_drawing_styles
+                    .get_default_face_mesh_iris_connections_style())
+            cv2.imwrite('./results/mediapipe_test/' + os.path.basename(file), annotated_image)
+
+
 if __name__ == '__main__':
     # test_warping_spade_model()
     # test_motion_extractor_model()
     # test_landmark_model()
     # test_face_analysis_model()
-    test_appearance_extractor_model()
+    # test_appearance_extractor_model()
     # test_stitching_model()
+    test_mediapipe_face()

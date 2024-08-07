@@ -318,7 +318,8 @@ class FaceAnalysisModel:
             self.estimate_face_pose(data[0], face)
             ret.append(face)
         ret = sort_by_direction(ret, 'large-small', None)
-        return ret
+        outs = [x.landmark for x in ret]
+        return outs
 
     def __del__(self):
         del self.face_det

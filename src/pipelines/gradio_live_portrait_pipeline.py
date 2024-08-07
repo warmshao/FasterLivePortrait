@@ -83,7 +83,6 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             input_source_path = input_source_image_path
 
         if flag_is_animal != self.is_animal:
-            self.is_animal = flag_is_animal
             self.init_models(is_animal=flag_is_animal)
 
         if input_source_path is not None and input_driving_video_path is not None:

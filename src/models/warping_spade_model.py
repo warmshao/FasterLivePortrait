@@ -21,7 +21,7 @@ class WarpingSpadeModel(BaseModel):
 
     def input_process(self, *data):
         feature_3d, kp_source, kp_driving = data
-        return feature_3d, kp_source, kp_driving
+        return feature_3d, kp_driving, kp_source
 
     def output_process(self, *data):
         out = data[0]

@@ -164,6 +164,24 @@ def parse_pt2_from_pt9(pt9, use_lip=True):
     return pt2
 
 
+def parse_pt2_from_pt478(pt478, use_lip=True):
+    """
+    parsing the 2 points according to the 101 points, which cancels the roll
+    """
+    # the former version use the eye center, but it is not robust, now use interpolation
+    pt_left_eye = pt478[468]  # left eye center
+    pt_right_eye = pt478[473]  # right eye center
+
+    if use_lip:
+        # use lip
+        pt_center_eye = (pt_left_eye + pt_right_eye) / 2
+        pt_center_lip = pt478[14]
+        pt2 = np.stack([pt_center_eye, pt_center_lip], axis=0)
+    else:
+        pt2 = np.stack([pt_left_eye, pt_right_eye], axis=0)
+    return pt2
+
+
 def parse_pt2_from_pt_x(pts, use_lip=True):
     if pts.shape[0] == 101:
         pt2 = parse_pt2_from_pt101(pts, use_lip=use_lip)
@@ -173,6 +191,8 @@ def parse_pt2_from_pt_x(pts, use_lip=True):
         pt2 = parse_pt2_from_pt68(pts, use_lip=use_lip)
     elif pts.shape[0] == 5:
         pt2 = parse_pt2_from_pt5(pts, use_lip=use_lip)
+    elif pts.shape[0] == 478:
+        pt2 = parse_pt2_from_pt478(pts, use_lip=use_lip)
     elif pts.shape[0] == 203:
         pt2 = parse_pt2_from_pt203(pts, use_lip=use_lip)
     elif pts.shape[0] > 101:
