@@ -28,7 +28,7 @@ class FasterLivePortraitPipeline:
 
     def init(self, **kwargs):
         self.init_vars(**kwargs)
-        self.init_models(is_animal=False, **kwargs)
+        self.init_models(**kwargs)
 
     def clean_models(self, **kwargs):
         """

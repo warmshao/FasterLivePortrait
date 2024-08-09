@@ -39,11 +39,12 @@ if __name__ == '__main__':
                         help='driving video')
     parser.add_argument('--cfg', required=False, type=str, default="configs/onnx_infer.yaml", help='inference config')
     parser.add_argument('--realtime', action='store_true', help='realtime inference')
+    parser.add_argument('--animal', action='store_true', help='use animal model')
     args, unknown = parser.parse_known_args()
 
     infer_cfg = OmegaConf.load(args.cfg)
 
-    pipe = FasterLivePortraitPipeline(cfg=infer_cfg)
+    pipe = FasterLivePortraitPipeline(cfg=infer_cfg, is_animal=args.animal)
     ret = pipe.prepare_source(args.src_image, realtime=args.realtime)
     if not ret:
         print(f"no face in {args.src_image}! exit!")
