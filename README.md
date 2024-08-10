@@ -11,7 +11,7 @@
 
 **If you find this project useful, please give it a star ✨✨**
 
-<video src="https://github.com/user-attachments/assets/170aec12-6fb3-442f-8a2f-26ef91a4d6f9" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
+<video src="https://github.com/user-attachments/assets/dada0a92-593a-480b-a034-cbcce16e38b9" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
@@ -19,7 +19,7 @@
 - [x] **2024/08/07:** Added support for animal models and MediaPipe models, so you no longer need to worry about copyright issues.
   - Added support for animal models.
     - Download the animal ONNX file: `huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`, then convert it to TRT format.
-    - Update the Docker image: `docker pull shaoguo/faster_liveportrait:v2`
+    - Update the Docker image: `docker pull shaoguo/faster_liveportrait:v2`. Using animal model:`python run.py --src_image assets/examples/source/s39.jpg --dri_video 0 --cfg configs/trt_infer.yaml --realtime --animal`
     - Windows users can download the latest [Windows all-in-one package](https://github.com/warmshao/FasterLivePortrait/releases) from the release page, then unzip and use it.
     - Simple usage tutorial:
     
