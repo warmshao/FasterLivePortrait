@@ -15,7 +15,7 @@ import numpy as np
 import torch
 
 from .. import models
-from ..utils.crop import crop_image, parse_bbox_from_landmark, crop_image_by_bbox, paste_back
+from ..utils.crop import crop_image, parse_bbox_from_landmark, crop_image_by_bbox, paste_back, paste_back_pytorch
 from ..utils.utils import resize_to_limit, prepare_paste_back, get_rotation_matrix, calc_lip_close_ratio, \
     calc_eye_close_ratio, transform_keypoint, concat_feat
 from src.utils import utils
@@ -82,6 +82,8 @@ class FasterLivePortraitPipeline:
         self.src_infos = []
         self.src_imgs = []
         self.is_source_video = False
+
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     def calc_combined_eye_ratio(self, c_d_eyes_i, source_lmk):
         c_s_eyes = calc_eye_close_ratio(source_lmk[None])
@@ -228,10 +230,12 @@ class FasterLivePortraitPipeline:
                     if self.cfg.infer_params.flag_pasteback and self.cfg.infer_params.flag_do_crop and self.cfg.infer_params.flag_stitching:
                         mask_ori_float = prepare_paste_back(self.mask_crop, crop_info['M_c2o'],
                                                             dsize=(img_rgb.shape[1], img_rgb.shape[0]))
-                        src_infos[i].append(mask_ori_float.copy())
+                        mask_ori_float = torch.from_numpy(mask_ori_float).to(self.device)
+                        src_infos[i].append(mask_ori_float)
                     else:
                         src_infos[i].append(None)
-                    src_infos[i].append(crop_info)
+                    M = torch.from_numpy(crop_info['M_c2o']).to(self.device)
+                    src_infos[i].append(M)
                 self.src_infos.append(src_infos[:])
             print(f"finish process source:{source_path} >>>>>>>>")
             return len(self.src_infos) > 0
@@ -281,7 +285,7 @@ class FasterLivePortraitPipeline:
     def run(self, image, img_src, src_info, **kwargs):
         img_bgr = image
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-        I_p_pstbk = img_src.copy()
+        I_p_pstbk = torch.from_numpy(img_src).to(self.device).float()
         realtime = kwargs.get("realtime", False)
 
         if self.cfg.infer_params.flag_crop_driving_video:
@@ -356,7 +360,7 @@ class FasterLivePortraitPipeline:
         x_d_0_info = copy.deepcopy(self.x_d_0_info)
         out_crop, out_org = None, None
         for j in range(len(src_info)):
-            x_s_info, source_lmk, R_s, f_s, x_s, x_c_s, lip_delta_before_animation, flag_lip_zero, mask_ori_float, crop_info = \
+            x_s_info, source_lmk, R_s, f_s, x_s, x_c_s, lip_delta_before_animation, flag_lip_zero, mask_ori_float, M = \
                 src_info[j]
             if self.cfg.infer_params.flag_relative_motion:
                 R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
@@ -419,9 +423,10 @@ class FasterLivePortraitPipeline:
             out_crop = self.model_dict["warping_spade"].predict(f_s, x_s, x_d_i_new)
             if not realtime and self.cfg.infer_params.flag_pasteback and self.cfg.infer_params.flag_do_crop and self.cfg.infer_params.flag_stitching:
                 # TODO: pasteback is slow, considering optimize it using multi-threading or GPU
-                I_p_pstbk = paste_back(out_crop, crop_info['M_c2o'], I_p_pstbk, mask_ori_float)
+                # I_p_pstbk = paste_back(out_crop, crop_info['M_c2o'], I_p_pstbk, mask_ori_float)
+                I_p_pstbk = paste_back_pytorch(out_crop, M, I_p_pstbk, mask_ori_float)
 
-        return img_crop, out_crop, I_p_pstbk
+        return img_crop, out_crop.to(dtype=torch.uint8).cpu().numpy(), I_p_pstbk.to(dtype=torch.uint8).cpu().numpy()
 
     def __del__(self):
         self.clean_models()

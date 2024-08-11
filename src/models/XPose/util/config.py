@@ -10,6 +10,7 @@ from importlib import import_module
 from argparse import Action
 
 from .addict import Dict
+import os
 
 BASE_KEY = '_base_'
 DELETE_KEY = '_delete_'
@@ -78,12 +79,12 @@ class Config(object):
         check_file_exist(filename)
         if filename.lower().endswith('.py'):
             with tempfile.TemporaryDirectory() as temp_config_dir:
-                temp_config_file = tempfile.NamedTemporaryFile(
-                    dir=temp_config_dir, suffix='.py')
-                temp_config_name = osp.basename(temp_config_file.name)
-                shutil.copyfile(filename,
-                                osp.join(temp_config_dir, temp_config_name))
-                temp_module_name = osp.splitext(temp_config_name)[0]
+                # 使用 mkstemp 代替 NamedTemporaryFile
+                fd, temp_path = tempfile.mkstemp(dir=temp_config_dir, suffix='.py')
+                os.close(fd)  # 立即关闭文件描述符
+                temp_config_name = os.path.basename(temp_path)
+                shutil.copyfile(filename, os.path.join(temp_config_dir, temp_config_name))
+                temp_module_name = os.path.splitext(temp_config_name)[0]
                 sys.path.insert(0, temp_config_dir)
                 Config._validate_py_syntax(filename)
                 mod = import_module(temp_module_name)
@@ -95,8 +96,6 @@ class Config(object):
                 }
                 # delete imported module
                 del sys.modules[temp_module_name]
-                # close temp file
-                temp_config_file.close()
         elif filename.lower().endswith(('.yml', '.yaml', '.json')):
             from .slio import slload
             cfg_dict = slload(filename)
