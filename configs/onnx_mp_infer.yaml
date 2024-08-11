@@ -61,11 +61,8 @@ animal_models:
     predict_type: "ort"
     model_path: "./checkpoints/liveportrait_onnx/landmark.onnx"
   face_analysis:
-    name: "FaceAnalysisModel"
-    predict_type: "ort"
-    model_path:
-      - "./checkpoints/liveportrait_onnx/retinaface_det_static.onnx"
-      - "./checkpoints/liveportrait_onnx/face_2dpose_106_static.onnx"
+    name: "MediaPipeFaceModel"
+    predict_type: "mp"
 
 crop_params:
   src_dsize: 512

@@ -24,10 +24,12 @@ class WarpingSpadeModel(BaseModel):
         return feature_3d, kp_driving, kp_source
 
     def output_process(self, *data):
-        out = data[0]
-        out = np.transpose(out, [0, 2, 3, 1])  # 1x3xHxW -> 1xHxWx3
-        out = np.clip(out, 0, 1)  # clip to 0~1
-        out = np.clip(out * 255, 0, 255).astype(np.uint8)
+        if self.predict_type != "trt":
+            out = torch.from_numpy(data[0]).to(self.device).float()
+        else:
+            out = data[0]
+        out = out.permute(0, 2, 3, 1)
+        out = torch.clip(out, 0, 1) * 255
         return out[0]
 
     def predict_trt(self, *data):
@@ -42,7 +44,7 @@ class WarpingSpadeModel(BaseModel):
         preds_dict = self.predictor.predict(feed_dict, self.cudaStream)
         outs = []
         for i, out in enumerate(self.predictor.outputs):
-            outs.append(preds_dict[out["name"]].cpu().numpy())
+            outs.append(preds_dict[out["name"]].clone())
         nvtx.range_pop()
         return outs
 

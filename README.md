@@ -16,10 +16,13 @@
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **Changelog**
+- [x] **2024/08/11:** Optimized paste_back speed and fixed some bugs.
+  - Used torchgeometry + cuda to optimize the paste_back function, significantly improving speed. Example: `python run.py --src_image assets/examples/source/s39.jpg --dri_video assets/examples/driving/d0.mp4 --cfg configs/trt_infer.yaml --paste_back --animal`
+  - Fixed issues with Xpose ops causing errors on some GPUs and other bugs. Please use the latest docker image: `docker pull shaoguo/faster_liveportrait:v3`
 - [x] **2024/08/07:** Added support for animal models and MediaPipe models, so you no longer need to worry about copyright issues.
   - Added support for animal models.
     - Download the animal ONNX file: `huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`, then convert it to TRT format.
-    - Update the Docker image: `docker pull shaoguo/faster_liveportrait:v2`. Using animal model:`python run.py --src_image assets/examples/source/s39.jpg --dri_video 0 --cfg configs/trt_infer.yaml --realtime --animal`
+    - Update the Docker image: `docker pull shaoguo/faster_liveportrait:v3`. Using animal model:`python run.py --src_image assets/examples/source/s39.jpg --dri_video 0 --cfg configs/trt_infer.yaml --realtime --animal`
     - Windows users can download the latest [Windows all-in-one package](https://github.com/warmshao/FasterLivePortrait/releases) from the release page, then unzip and use it.
     - Simple usage tutorial:
     
@@ -47,7 +50,7 @@
 ### Environment Setup
 * Option 1: Docker (recommended).A docker image is provided for  eliminating the need to install onnxruntime-gpu and TensorRT manually.
   * Install [Docker](https://docs.docker.com/desktop/install/windows-install/) according to your system
-  * Download the image: `docker pull shaoguo/faster_liveportrait:v1`
+  * Download the image: `docker pull shaoguo/faster_liveportrait:v3`
   * Execute the command, replace `$FasterLivePortrait_ROOT` with the local directory where you downloaded FasterLivePortrait:
   ```shell
   docker run -it --gpus=all \
@@ -55,7 +58,7 @@
   -v $FasterLivePortrait_ROOT:/root/FasterLivePortrait \
   --restart=always \
   -p 9870:9870 \
-  shaoguo/faster_liveportrait:v1 \
+  shaoguo/faster_liveportrait:v3 \
   /bin/bash
   ```
 * Option 2: Create a new Python virtual environment and install the necessary Python packages manually.
