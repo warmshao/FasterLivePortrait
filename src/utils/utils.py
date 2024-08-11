@@ -16,6 +16,25 @@ def video_has_audio(video_file):
         return False
 
 
+def get_video_info(video_path):
+    # 使用 ffmpeg.probe 获取视频信息
+    probe = ffmpeg.probe(video_path)
+    video_streams = [stream for stream in probe['streams'] if stream['codec_type'] == 'video']
+
+    if not video_streams:
+        raise ValueError("No video stream found")
+
+    # 获取视频时长
+    duration = float(probe['format']['duration'])
+
+    # 获取帧率 (r_frame_rate)，通常是一个分数字符串，如 "30000/1001"
+    fps_string = video_streams[0]['r_frame_rate']
+    numerator, denominator = map(int, fps_string.split('/'))
+    fps = numerator / denominator
+
+    return duration, fps
+
+
 def resize_to_limit(img: np.ndarray, max_dim=1280, division=2):
     """
     ajust the size of the image so that the maximum dimension does not exceed max_dim, and the width and the height of the image are multiples of n.
