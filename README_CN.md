@@ -16,10 +16,13 @@
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **日志**
+- [x] **2024/08/11:** 优化paste_back的速度，修复一些bug。
+  - 用torchgeometry + cuda优化paste_back函数，现在速度提升了很多。示例：`python run.py --src_image assets/examples/source/s39.jpg --dri_video assets/examples/driving/d0.mp4 --cfg configs/trt_infer.yaml --paste_back --animal`
+  - 修复Xpose的ops在一些显卡运行报错的问题等bug。请使用最新的镜像:`docker pull shaoguo/faster_liveportrait:v3`
 - [x] **2024/08/07:** 增加animal模型的支持，同时支持mediapipe模型，现在你不用再担心版权的问题。
   - 增加对animal模型的支持。
     - 需要下载animal的onnx文件：`huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`，然后转换成trt文件。
-    - 更新镜像`docker pull shaoguo/faster_liveportrait:v2`, 使用animal模型的示例:`python run.py --src_image assets/examples/source/s39.jpg --dri_video 0 --cfg configs/trt_infer.yaml --realtime --animal`
+    - 更新镜像`docker pull shaoguo/faster_liveportrait:v3`, 使用animal模型的示例:`python run.py --src_image assets/examples/source/s39.jpg --dri_video 0 --cfg configs/trt_infer.yaml --realtime --animal`
     - windows系统可以从release页下载最新的[windows 整合包](https://github.com/warmshao/FasterLivePortrait/releases)，解压后使用。
     - 简单的使用教程：
     
@@ -48,7 +51,7 @@
 ### 环境安装
 * 方式1：Docker(推荐），提供了一个镜像，不用再自己安装onnxruntime-gpu和TensorRT。
   * 根据自己的系统安装[docker](https://docs.docker.com/desktop/install/windows-install/)
-  * 下载镜像：`docker pull shaoguo/faster_liveportrait:v2`
+  * 下载镜像：`docker pull shaoguo/faster_liveportrait:v3`
   * 执行命令, `$FasterLivePortrait_ROOT`要替换成你下载的FasterLivePortrait在本地的目录:
   ```shell
   docker run -it --gpus=all \
@@ -56,7 +59,7 @@
   -v $FasterLivePortrait_ROOT:/root/FasterLivePortrait \
   --restart=always \
   -p 9870:9870 \
-  shaoguo/faster_liveportrait:v1 \
+  shaoguo/faster_liveportrait:v3 \
   /bin/bash
   ```
   * 然后可以根据下面Onnxruntime 推理和TensorRT 推理教程进行使用。
