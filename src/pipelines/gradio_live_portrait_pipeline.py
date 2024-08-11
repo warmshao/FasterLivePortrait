@@ -17,9 +17,11 @@ from .faster_live_portrait_pipeline import FasterLivePortraitPipeline
 from ..utils.utils import video_has_audio
 from ..utils.utils import resize_to_limit, prepare_paste_back, get_rotation_matrix, calc_lip_close_ratio, \
     calc_eye_close_ratio, transform_keypoint, concat_feat
-from ..utils.crop import crop_image, parse_bbox_from_landmark, crop_image_by_bbox, paste_back
+from ..utils.crop import crop_image, parse_bbox_from_landmark, crop_image_by_bbox, paste_back, paste_back_pytorch
 from src.utils import utils
 import platform
+import torch
+from PIL import Image
 
 if platform.system().lower() == 'windows':
     FFMPEG = "third_party/ffmpeg-7.0.1-full_build/bin/ffmpeg.exe"
@@ -125,7 +127,12 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
                 raise gr.Error(f"Error in processing source:{source_path} 💥!", duration=5)
 
         vcap = cv2.VideoCapture(driving_video_path)
-        fps = int(vcap.get(cv2.CAP_PROP_FPS))
+        if self.is_source_video:
+            duration, fps = utils.get_video_info(self.source_path)
+            fps = int(fps)
+        else:
+            fps = int(vcap.get(cv2.CAP_PROP_FPS))
+
         dframe = int(vcap.get(cv2.CAP_PROP_FRAME_COUNT))
         if self.is_source_video:
             max_frame = min(dframe, len(self.src_imgs))
@@ -168,19 +175,38 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
 
         if video_has_audio(driving_video_path):
             vsave_crop_path_new = os.path.splitext(vsave_crop_path)[0] + "-audio.mp4"
-            subprocess.call(
-                [FFMPEG, "-i", vsave_crop_path, "-i", driving_video_path,
-                 "-b:v", "10M", "-c:v",
-                 "libx264", "-map", "0:v", "-map", "1:a",
-                 "-c:a", "aac",
-                 "-pix_fmt", "yuv420p", vsave_crop_path_new, "-y", "-shortest"])
             vsave_org_path_new = os.path.splitext(vsave_org_path)[0] + "-audio.mp4"
-            subprocess.call(
-                [FFMPEG, "-i", vsave_org_path, "-i", driving_video_path,
-                 "-b:v", "10M", "-c:v",
-                 "libx264", "-map", "0:v", "-map", "1:a",
-                 "-c:a", "aac",
-                 "-pix_fmt", "yuv420p", vsave_org_path_new, "-y", "-shortest"])
+            if self.is_source_video:
+                duration, fps = utils.get_video_info(vsave_crop_path)
+                subprocess.call(
+                    [FFMPEG, "-i", vsave_crop_path, "-i", driving_video_path,
+                     "-b:v", "10M", "-c:v", "libx264", "-map", "0:v", "-map", "1:a",
+                     "-c:a", "aac", "-pix_fmt", "yuv420p",
+                     "-shortest",  # 以最短的流为基准
+                     "-t", str(duration),  # 设置时长
+                     "-r", str(fps),  # 设置帧率
+                     vsave_crop_path_new, "-y"])
+                subprocess.call(
+                    [FFMPEG, "-i", vsave_org_path, "-i", driving_video_path,
+                     "-b:v", "10M", "-c:v", "libx264", "-map", "0:v", "-map", "1:a",
+                     "-c:a", "aac", "-pix_fmt", "yuv420p",
+                     "-shortest",  # 以最短的流为基准
+                     "-t", str(duration),  # 设置时长
+                     "-r", str(fps),  # 设置帧率
+                     vsave_org_path_new, "-y"])
+            else:
+                subprocess.call(
+                    [FFMPEG, "-i", vsave_crop_path, "-i", driving_video_path,
+                     "-b:v", "10M", "-c:v",
+                     "libx264", "-map", "0:v", "-map", "1:a",
+                     "-c:a", "aac",
+                     "-pix_fmt", "yuv420p", vsave_crop_path_new, "-y", "-shortest"])
+                subprocess.call(
+                    [FFMPEG, "-i", vsave_org_path, "-i", driving_video_path,
+                     "-b:v", "10M", "-c:v",
+                     "libx264", "-map", "0:v", "-map", "1:a",
+                     "-c:a", "aac",
+                     "-pix_fmt", "yuv420p", vsave_org_path_new, "-y", "-shortest"])
 
             return vsave_org_path_new, vsave_crop_path_new, total_time
         else:
@@ -207,9 +233,10 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             x_d_new = x_s_user + eyes_delta.reshape(-1, num_kp, 3) + lip_delta.reshape(-1, num_kp, 3)
             # D(W(f_s; x_s, x′_d))
             out = self.model_dict["warping_spade"].predict(f_s_user, x_s_user, x_d_new)
-            out_to_ori_blend = paste_back(out, crop_M_c2o, img_rgb, mask_ori)
+            img_rgb = torch.from_numpy(img_rgb).to(self.device)
+            out_to_ori_blend = paste_back_pytorch(out, crop_M_c2o, img_rgb, mask_ori)
             gr.Info("Run successfully!", duration=2)
-            return out, out_to_ori_blend
+            return out.to(dtype=torch.uint8).cpu().numpy(), out_to_ori_blend.to(dtype=torch.uint8).cpu().numpy()
 
     def prepare_retargeting(self, input_image, flag_do_crop=True):
         """ for single image retargeting
@@ -221,7 +248,10 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
                                       self.cfg.infer_params.source_division)
             img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-            src_faces = self.model_dict["face_analysis"].predict(img_bgr)
+            if self.is_animal:
+                raise gr.Error("Animal Model Not Supported in Face Retarget 💥!", duration=5)
+            else:
+                src_faces = self.model_dict["face_analysis"].predict(img_bgr)
 
             if len(src_faces) == 0:
                 raise gr.Error("No face detect in image 💥!", duration=5)
@@ -229,8 +259,7 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             crop_infos = []
             for i in range(len(src_faces)):
                 # NOTE: temporarily only pick the first face, to support multiple face in the future
-                src_face = src_faces[i]
-                lmk = src_face.landmark  # this is the 106 landmarks from insightface
+                lmk = src_faces[i]
                 # crop the face
                 ret_dct = crop_image(
                     img_rgb,  # ndarray
@@ -240,8 +269,10 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
                     vx_ratio=self.cfg.crop_params.src_vx_ratio,
                     vy_ratio=self.cfg.crop_params.src_vy_ratio,
                 )
+
                 lmk = self.model_dict["landmark"].predict(img_rgb, lmk)
                 ret_dct["lmk_crop"] = lmk
+                ret_dct["lmk_crop_256x256"] = ret_dct["lmk_crop"] * 256 / self.cfg.crop_params.src_dsize
 
                 # update a 256x256 version for network input
                 ret_dct["img_crop_256x256"] = cv2.resize(
@@ -270,9 +301,10 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             x_s_user = transform_keypoint(pitch, yaw, roll, t, exp, scale, kp)
             source_lmk_user = crop_info['lmk_crop']
             crop_M_c2o = crop_info['M_c2o']
-
+            crop_M_c2o = torch.from_numpy(crop_M_c2o).to(self.device)
             mask_ori = prepare_paste_back(self.mask_crop, crop_info['M_c2o'],
                                           dsize=(img_rgb.shape[1], img_rgb.shape[0]))
+            mask_ori = torch.from_numpy(mask_ori).to(self.device).float()
             return f_s_user, x_s_user, source_lmk_user, crop_M_c2o, mask_ori, img_rgb
         else:
             # when press the clear button, go here
