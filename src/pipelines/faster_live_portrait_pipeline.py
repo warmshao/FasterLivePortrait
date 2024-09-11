@@ -289,24 +289,17 @@ class FasterLivePortraitPipeline:
         realtime = kwargs.get("realtime", False)
 
         if self.cfg.infer_params.flag_crop_driving_video:
-            NEED_INITIAL_ANAYLYSIS = False            
-            if self.src_lmk_pre is not None:
-                lt_pt = np.min(self.src_lmk_pre, axis=0)
-                rb_pt = np.max(self.src_lmk_pre, axis=0)
-                size = rb_pt - lt_pt
-                if min(size)<  img_bgr.shape[0]//5: # if less than 5 times, say it losts track
-                    NEED_INITIAL_ANAYLYSIS = True
-            if self.src_lmk_pre is None or NEED_INITIAL_ANAYLYSIS is True:    
-                src_face = self.model_dict["face_analysis"].predict(img_bgr)
-                if len(src_face) == 0:
-                    self.src_lmk_pre = None
+            dri_face = self.model_dict["face_analysis"].predict(img_bgr)
+            if len(dri_face) == 0:
+                if self.dri_lmk_pre is not None:
+                # Temporarily use the frame before lost
+                    lmk = self.dri_lmk_pre
+                else:
+                    self.dri_lmk_pre = None
                     return None, None, None
-                lmk = src_face[0]
-                lmk = self.model_dict["landmark"].predict(img_rgb, lmk)
-                self.src_lmk_pre = lmk.copy()
             else:
-                lmk = self.model_dict["landmark"].predict(img_rgb, self.src_lmk_pre)
-                self.src_lmk_pre = lmk.copy()
+                lmk = self.model_dict["landmark"].predict(img_rgb, dri_face[0])
+                self.dri_lmk_pre = lmk.copy()
 
             ret_bbox = parse_bbox_from_landmark(
                 lmk,
