@@ -289,7 +289,14 @@ class FasterLivePortraitPipeline:
         realtime = kwargs.get("realtime", False)
 
         if self.cfg.infer_params.flag_crop_driving_video:
-            if self.src_lmk_pre is None:
+            NEED_INITIAL_ANAYLYSIS = False            
+            if self.src_lmk_pre is not None:
+                lt_pt = np.min(self.src_lmk_pre, axis=0)
+                rb_pt = np.max(self.src_lmk_pre, axis=0)
+                size = rb_pt - lt_pt
+                if min(size)<  img_bgr.shape[0]//5: # if less than 5 times, say it losts track
+                    NEED_INITIAL_ANAYLYSIS = True
+            if self.src_lmk_pre is None or NEED_INITIAL_ANAYLYSIS is True:    
                 src_face = self.model_dict["face_analysis"].predict(img_bgr)
                 if len(src_face) == 0:
                     self.src_lmk_pre = None
