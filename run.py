@@ -75,12 +75,18 @@ if __name__ == '__main__':
         vout_org = cv2.VideoWriter(vsave_org_path, fourcc, fps, (w, h))
 
     infer_times = []
+    frame_ind = 0
     while vcap.isOpened():
         ret, frame = vcap.read()
         if not ret:
             break
         t0 = time.time()
-        dri_crop, out_crop, out_org = pipe.run(frame, pipe.src_imgs[0], pipe.src_infos[0])
+        first_frame = frame_ind == 0
+        dri_crop, out_crop, out_org = pipe.run(frame, pipe.src_imgs[0], pipe.src_infos[0], first_frame=first_frame)
+        frame_ind += 1
+        if out_crop is None:
+            print(f"no face in driving frame:{frame_ind}")
+            continue
         infer_times.append(time.time() - t0)
         print(time.time() - t0)
         dri_crop = cv2.resize(dri_crop, (512, 512))

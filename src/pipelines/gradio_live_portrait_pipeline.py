@@ -157,10 +157,16 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             if not ret:
                 break
             t0 = time.time()
+            first_frame = i == 0
             if self.is_source_video:
-                dri_crop, out_crop, out_org = self.run(frame, self.src_imgs[i], self.src_infos[i])
+                dri_crop, out_crop, out_org = self.run(frame, self.src_imgs[i], self.src_infos[i],
+                                                       first_frame=first_frame)
             else:
-                dri_crop, out_crop, out_org = self.run(frame, self.src_imgs[0], self.src_infos[0])
+                dri_crop, out_crop, out_org = self.run(frame, self.src_imgs[0], self.src_infos[0],
+                                                       first_frame=first_frame)
+            if out_crop is None:
+                print(f"no face in driving frame:{i}")
+                continue
             infer_times.append(time.time() - t0)
             dri_crop = cv2.resize(dri_crop, (512, 512))
             out_crop = np.concatenate([dri_crop, out_crop], axis=1)
