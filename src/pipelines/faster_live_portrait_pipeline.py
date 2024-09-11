@@ -76,6 +76,8 @@ class FasterLivePortraitPipeline:
         self.src_lmk_pre = None
         self.R_d_0 = None
         self.x_d_0_info = None
+        self.R_d_smooth = utils.OneEuroFilter(4, 1)
+        self.exp_smooth = utils.OneEuroFilter(4, 1)
 
         ## 记录source的信息
         self.source_path = None
@@ -353,9 +355,12 @@ class FasterLivePortraitPipeline:
         }
         R_d_i = get_rotation_matrix(pitch, yaw, roll)
 
-        if self.R_d_0 is None:
+        if kwargs.get("first_frame", False) or self.R_d_0 is None:
             self.R_d_0 = R_d_i.copy()
             self.x_d_0_info = copy.deepcopy(x_d_i_info)
+            # realtime smooth
+            self.R_d_smooth = utils.OneEuroFilter(4, 1)
+            self.exp_smooth = utils.OneEuroFilter(4, 1)
         R_d_0 = self.R_d_0.copy()
         x_d_0_info = copy.deepcopy(self.x_d_0_info)
         out_crop, out_org = None, None
@@ -363,13 +368,31 @@ class FasterLivePortraitPipeline:
             x_s_info, source_lmk, R_s, f_s, x_s, x_c_s, lip_delta_before_animation, flag_lip_zero, mask_ori_float, M = \
                 src_info[j]
             if self.cfg.infer_params.flag_relative_motion:
-                R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
+                if self.is_source_video:
+                    if self.cfg.infer_params.flag_video_editing_head_rotation:
+                        R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
+                        R_new = self.R_d_smooth.process(R_new)
+                    else:
+                        R_new = R_s
+                else:
+                    R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
                 delta_new = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
-                scale_new = x_s_info['scale'] * (x_d_i_info['scale'] / x_d_0_info['scale'])
-                t_new = x_s_info['t'] + (x_d_i_info['t'] - x_d_0_info['t'])
+                if self.is_source_video:
+                    delta_new = self.exp_smooth.process(delta_new)
+                scale_new = x_s_info['scale'] if self.is_source_video else x_s_info['scale'] * (x_d_i_info['scale'] / x_d_0_info['scale'])
+                t_new = x_s_info['t'] if self.is_source_video else x_s_info['t'] + (x_d_i_info['t'] - x_d_0_info['t'])
             else:
-                R_new = R_d_i
+                if self.is_source_video:
+                    if self.cfg.infer_params.flag_video_editing_head_rotation:
+                        R_new = R_d_i
+                        R_new = self.R_d_smooth.process(R_new)
+                    else:
+                        R_new = R_s
+                else:
+                    R_new = R_d_i
                 delta_new = x_d_i_info['exp'].copy()
+                if self.is_source_video:
+                    delta_new = self.exp_smooth.process(delta_new)
                 scale_new = x_s_info['scale'].copy()
                 t_new = x_d_i_info['t'].copy()
 
