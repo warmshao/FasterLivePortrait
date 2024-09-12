@@ -73,7 +73,10 @@ class FasterLivePortraitPipeline:
     def init_vars(self, **kwargs):
         self.mask_crop = cv2.imread(self.cfg.infer_params.mask_crop_path, cv2.IMREAD_COLOR)
         self.frame_id = 0
-        self.src_lmk_pre = None
+        self.dri_lmk_pre = None
+        self.dri_initial = None
+        self.dri_diff = None
+        self.dri_reanalysis = False
         self.R_d_0 = None
         self.x_d_0_info = None
         self.R_d_smooth = utils.OneEuroFilter(4, 1)
@@ -189,6 +192,7 @@ class FasterLivePortraitPipeline:
                     img_crop, img_crop_256x256 = crop_info['img_crop'], crop_info['img_crop_256x256']
                     pitch, yaw, roll, t, exp, scale, kp = self.model_dict["motion_extractor"].predict(
                         img_crop_256x256)
+                    print(f"\n motion precdicted scale:{scale}")
                     x_s_info = {
                         "pitch": pitch,
                         "yaw": yaw,
@@ -290,18 +294,44 @@ class FasterLivePortraitPipeline:
         I_p_pstbk = torch.from_numpy(img_src).to(self.device).float()
         realtime = kwargs.get("realtime", False)
 
-        if self.cfg.infer_params.flag_crop_driving_video:
-            if self.src_lmk_pre is None:
-                src_face = self.model_dict["face_analysis"].predict(img_bgr)
-                if len(src_face) == 0:
-                    self.src_lmk_pre = None
+        if self.cfg.infer_params.flag_crop_driving_video:      
+            
+            if self.dri_lmk_pre is None:
+                #initialization
+                dri_face = self.model_dict["face_analysis"].predict(img_bgr)
+                if len(dri_face) == 0:
+                    self.dri_lmk_pre = None
                     return None, None, None
-                lmk = src_face[0]
-                lmk = self.model_dict["landmark"].predict(img_rgb, lmk)
-                self.src_lmk_pre = lmk.copy()
+                lmk = self.model_dict["landmark"].predict(img_rgb, dri_face[0])
+                slice = lmk[:,0]
+                self.diff = slice.max()-slice.min()
+                self.dri_lmk_pre = lmk.copy()
+                self.dri_initial = lmk.copy()
+            elif self.dri_reanalysis:
+                dri_face = self.model_dict["face_analysis"].predict(img_bgr)
+                if len(dri_face) == 0:                    
+                    # assert self.dri_lmk_pre is not None                    
+                    # Temporarily use the frame before lost
+                    lmk = self.dri_initial
+                else:
+                    # Re initialization
+                    self.dri_reanalysis = False                    
+                    lmk = self.model_dict["landmark"].predict(img_rgb, dri_face[0])
+                    slice = lmk[:,0]
+                    self.diff = slice.max()-slice.min()
+                    self.dri_lmk_pre = lmk.copy()
+                    self.dri_initial = lmk.copy()
             else:
-                lmk = self.model_dict["landmark"].predict(img_rgb, self.src_lmk_pre)
-                self.src_lmk_pre = lmk.copy()
+                lmk = self.model_dict["landmark"].predict(img_rgb, self.dri_lmk_pre)
+                slice = lmk[:,0]
+                dri_diff = slice.max()-slice.min()                
+                if self.dri_diff - dri_diff > 20:
+                    self.dri_reanalysis = True # not confident when weird shrink
+                elif dri_diff < 32: # not confident, say less than 32 pixels                    
+                    self.dri_reanalysis = True
+                self.dri_diff = dri_diff
+                self.dri_lmk_pre = lmk.copy()
+           
 
             ret_bbox = parse_bbox_from_landmark(
                 lmk,
@@ -327,17 +357,17 @@ class FasterLivePortraitPipeline:
             img_crop = ret_dct["img_crop"]
             img_crop = cv2.resize(img_crop, (256, 256))
         else:
-            if self.src_lmk_pre is None:
-                src_face = self.model_dict["face_analysis"].predict(img_bgr)
-                if len(src_face) == 0:
-                    self.src_lmk_pre = None
+            if self.dri_lmk_pre is None:
+                dri_face = self.model_dict["face_analysis"].predict(img_bgr)
+                if len(dri_face) == 0:
+                    self.dri_lmk_pre = None
                     return None, None, None
-                lmk = src_face[0]
+                lmk = dri_face[0]
                 lmk = self.model_dict["landmark"].predict(img_rgb, lmk)
-                self.src_lmk_pre = lmk.copy()
+                self.dri_lmk_pre = lmk.copy()
             else:
-                lmk = self.model_dict["landmark"].predict(img_rgb, self.src_lmk_pre)
-                self.src_lmk_pre = lmk.copy()
+                lmk = self.model_dict["landmark"].predict(img_rgb, self.dri_lmk_pre)
+                self.dri_lmk_pre = lmk.copy()
             lmk_crop = lmk.copy()
             img_crop = cv2.resize(img_rgb, (256, 256))
 
