@@ -289,13 +289,11 @@ class FasterLivePortraitPipeline:
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
         I_p_pstbk = torch.from_numpy(img_src).to(self.device).float()
         realtime = kwargs.get("realtime", False)
-
         if self.cfg.infer_params.flag_crop_driving_video:
             if self.src_lmk_pre is None:
                 src_face = self.model_dict["face_analysis"].predict(img_bgr)
                 if len(src_face) == 0:
-                    self.src_lmk_pre = None
-                    return None, None, None
+                    return None, None, None, None
                 lmk = src_face[0]
                 lmk = self.model_dict["landmark"].predict(img_rgb, lmk)
                 self.src_lmk_pre = lmk.copy()
@@ -330,8 +328,7 @@ class FasterLivePortraitPipeline:
             if self.src_lmk_pre is None:
                 src_face = self.model_dict["face_analysis"].predict(img_bgr)
                 if len(src_face) == 0:
-                    self.src_lmk_pre = None
-                    return None, None, None
+                    return None, None, None, None
                 lmk = src_face[0]
                 lmk = self.model_dict["landmark"].predict(img_rgb, lmk)
                 self.src_lmk_pre = lmk.copy()
@@ -354,8 +351,14 @@ class FasterLivePortraitPipeline:
             "kp": kp
         }
         R_d_i = get_rotation_matrix(pitch, yaw, roll)
-
+        x_d_i_info["R"] = R_d_i
+        x_d_i_info_copy = copy.deepcopy(x_d_i_info)
+        for key in x_d_i_info_copy:
+            x_d_i_info_copy[key] = x_d_i_info_copy[key].astype(np.float32)
+        dri_motion_info = [x_d_i_info_copy, copy.deepcopy(input_eye_ratio.astype(np.float32)),
+                           copy.deepcopy(input_lip_ratio.astype(np.float32))]
         if kwargs.get("first_frame", False) or self.R_d_0 is None:
+            self.frame_id = 0
             self.R_d_0 = R_d_i.copy()
             self.x_d_0_info = copy.deepcopy(x_d_i_info)
             # realtime smooth
@@ -379,7 +382,8 @@ class FasterLivePortraitPipeline:
                 delta_new = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
                 if self.is_source_video:
                     delta_new = self.exp_smooth.process(delta_new)
-                scale_new = x_s_info['scale'] if self.is_source_video else x_s_info['scale'] * (x_d_i_info['scale'] / x_d_0_info['scale'])
+                scale_new = x_s_info['scale'] if self.is_source_video else x_s_info['scale'] * (
+                        x_d_i_info['scale'] / x_d_0_info['scale'])
                 t_new = x_s_info['t'] if self.is_source_video else x_s_info['t'] + (x_d_i_info['t'] - x_d_0_info['t'])
             else:
                 if self.is_source_video:
@@ -449,7 +453,115 @@ class FasterLivePortraitPipeline:
                 # I_p_pstbk = paste_back(out_crop, crop_info['M_c2o'], I_p_pstbk, mask_ori_float)
                 I_p_pstbk = paste_back_pytorch(out_crop, M, I_p_pstbk, mask_ori_float)
 
-        return img_crop, out_crop.to(dtype=torch.uint8).cpu().numpy(), I_p_pstbk.to(dtype=torch.uint8).cpu().numpy()
+        return img_crop, out_crop.to(dtype=torch.uint8).cpu().numpy(), I_p_pstbk.to(
+            dtype=torch.uint8).cpu().numpy(), dri_motion_info
+
+    def run_with_pkl(self, dri_motion_info, img_src, src_info, **kwargs):
+        I_p_pstbk = torch.from_numpy(img_src).to(self.device).float()
+        realtime = kwargs.get("realtime", False)
+
+        input_eye_ratio = dri_motion_info[1]
+        input_lip_ratio = dri_motion_info[2]
+        x_d_i_info = dri_motion_info[0]
+        R_d_i = x_d_i_info["R"] if "R" in x_d_i_info else x_d_i_info["R_d"]
+
+        if kwargs.get("first_frame", False) or self.R_d_0 is None:
+            self.frame_id = 0
+            self.R_d_0 = R_d_i.copy()
+            self.x_d_0_info = copy.deepcopy(x_d_i_info)
+            # realtime smooth
+            self.R_d_smooth = utils.OneEuroFilter(4, 1)
+            self.exp_smooth = utils.OneEuroFilter(4, 1)
+        R_d_0 = self.R_d_0.copy()
+        x_d_0_info = copy.deepcopy(self.x_d_0_info)
+        out_crop, out_org = None, None
+        for j in range(len(src_info)):
+            x_s_info, source_lmk, R_s, f_s, x_s, x_c_s, lip_delta_before_animation, flag_lip_zero, mask_ori_float, M = \
+                src_info[j]
+            if self.cfg.infer_params.flag_relative_motion:
+                if self.is_source_video:
+                    if self.cfg.infer_params.flag_video_editing_head_rotation:
+                        R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
+                        R_new = self.R_d_smooth.process(R_new)
+                    else:
+                        R_new = R_s
+                else:
+                    R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
+                delta_new = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
+                if self.is_source_video:
+                    delta_new = self.exp_smooth.process(delta_new)
+                scale_new = x_s_info['scale'] if self.is_source_video else x_s_info['scale'] * (
+                        x_d_i_info['scale'] / x_d_0_info['scale'])
+                t_new = x_s_info['t'] if self.is_source_video else x_s_info['t'] + (x_d_i_info['t'] - x_d_0_info['t'])
+            else:
+                if self.is_source_video:
+                    if self.cfg.infer_params.flag_video_editing_head_rotation:
+                        R_new = R_d_i
+                        R_new = self.R_d_smooth.process(R_new)
+                    else:
+                        R_new = R_s
+                else:
+                    R_new = R_d_i
+                delta_new = x_d_i_info['exp'].copy()
+                if self.is_source_video:
+                    delta_new = self.exp_smooth.process(delta_new)
+                scale_new = x_s_info['scale'].copy()
+                t_new = x_d_i_info['t'].copy()
+
+            t_new[..., 2] = 0  # zero tz
+            x_d_i_new = scale_new * (x_c_s @ R_new + delta_new) + t_new
+            if not self.is_animal:
+                # Algorithm 1:
+                if not self.cfg.infer_params.flag_stitching and not self.cfg.infer_params.flag_eye_retargeting and not self.cfg.infer_params.flag_lip_retargeting:
+                    # without stitching or retargeting
+                    if flag_lip_zero:
+                        x_d_i_new += lip_delta_before_animation.reshape(-1, x_s.shape[1], 3)
+                    else:
+                        pass
+                elif self.cfg.infer_params.flag_stitching and not self.cfg.infer_params.flag_eye_retargeting and not self.cfg.infer_params.flag_lip_retargeting:
+                    # with stitching and without retargeting
+                    if flag_lip_zero:
+                        x_d_i_new = self.stitching(x_s, x_d_i_new) + lip_delta_before_animation.reshape(
+                            -1, x_s.shape[1], 3)
+                    else:
+                        x_d_i_new = self.stitching(x_s, x_d_i_new)
+                else:
+                    eyes_delta, lip_delta = None, None
+                    if self.cfg.infer_params.flag_eye_retargeting:
+                        c_d_eyes_i = input_eye_ratio
+                        combined_eye_ratio_tensor = self.calc_combined_eye_ratio(c_d_eyes_i,
+                                                                                 source_lmk)
+                        # ∆_eyes,i = R_eyes(x_s; c_s,eyes, c_d,eyes,i)
+                        eyes_delta = self.retarget_eye(x_s, combined_eye_ratio_tensor)
+                    if self.cfg.infer_params.flag_lip_retargeting:
+                        c_d_lip_i = input_lip_ratio
+                        combined_lip_ratio_tensor = self.calc_combined_lip_ratio(c_d_lip_i, source_lmk)
+                        # ∆_lip,i = R_lip(x_s; c_s,lip, c_d,lip,i)
+                        lip_delta = self.retarget_lip(x_s, combined_lip_ratio_tensor)
+
+                    if self.cfg.infer_params.flag_relative_motion:  # use x_s
+                        x_d_i_new = x_s + \
+                                    (eyes_delta.reshape(-1, x_s.shape[1], 3) if eyes_delta is not None else 0) + \
+                                    (lip_delta.reshape(-1, x_s.shape[1], 3) if lip_delta is not None else 0)
+                    else:  # use x_d,i
+                        x_d_i_new = x_d_i_new + \
+                                    (eyes_delta.reshape(-1, x_s.shape[1], 3) if eyes_delta is not None else 0) + \
+                                    (lip_delta.reshape(-1, x_s.shape[1], 3) if lip_delta is not None else 0)
+
+                    if self.cfg.infer_params.flag_stitching:
+                        x_d_i_new = self.stitching(x_s, x_d_i_new)
+            else:
+                if self.cfg.infer_params.flag_stitching:
+                    x_d_i_new = self.stitching(x_s, x_d_i_new)
+
+            x_d_i_new = x_s + (x_d_i_new - x_s) * self.cfg.infer_params.driving_multiplier
+            out_crop = self.model_dict["warping_spade"].predict(f_s, x_s, x_d_i_new)
+            if not realtime and self.cfg.infer_params.flag_pasteback and self.cfg.infer_params.flag_do_crop and self.cfg.infer_params.flag_stitching:
+                # TODO: pasteback is slow, considering optimize it using multi-threading or GPU
+                # I_p_pstbk = paste_back(out_crop, crop_info['M_c2o'], I_p_pstbk, mask_ori_float)
+                I_p_pstbk = paste_back_pytorch(out_crop, M, I_p_pstbk, mask_ori_float)
+
+        return out_crop.to(dtype=torch.uint8).cpu().numpy(), I_p_pstbk.to(dtype=torch.uint8).cpu().numpy()
 
     def __del__(self):
         self.clean_models()

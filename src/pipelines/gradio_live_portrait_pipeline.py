@@ -160,10 +160,10 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             first_frame = i == 0
             if self.is_source_video:
                 dri_crop, out_crop, out_org = self.run(frame, self.src_imgs[i], self.src_infos[i],
-                                                       first_frame=first_frame)
+                                                       first_frame=first_frame)[:3]
             else:
                 dri_crop, out_crop, out_org = self.run(frame, self.src_imgs[0], self.src_infos[0],
-                                                       first_frame=first_frame)
+                                                       first_frame=first_frame)[:3]
             if out_crop is None:
                 print(f"no face in driving frame:{i}")
                 continue
