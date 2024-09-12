@@ -74,6 +74,8 @@ class FasterLivePortraitPipeline:
         self.mask_crop = cv2.imread(self.cfg.infer_params.mask_crop_path, cv2.IMREAD_COLOR)
         self.frame_id = 0
         self.dri_lmk_pre = None
+        self.dir_initial = None
+        self.dir_diff = None
         self.dri_reanalysis = False
         self.R_d_0 = None
         self.x_d_0_info = None
@@ -188,7 +190,7 @@ class FasterLivePortraitPipeline:
                     img_crop, img_crop_256x256 = crop_info['img_crop'], crop_info['img_crop_256x256']
                     pitch, yaw, roll, t, exp, scale, kp = self.model_dict["motion_extractor"].predict(
                         img_crop_256x256)
-                    # print(f"motion precdicted scale:{scale}")
+                    print(f"\n motion precdicted scale:{scale}")
                     x_s_info = {
                         "pitch": pitch,
                         "yaw": yaw,
@@ -299,24 +301,33 @@ class FasterLivePortraitPipeline:
                     self.dri_lmk_pre = None
                     return None, None, None
                 lmk = self.model_dict["landmark"].predict(img_rgb, dri_face[0])
+                slice = lmk[:,0]
+                self.diff = slice.max()-slice.min()
                 self.dri_lmk_pre = lmk.copy()
+                self.dir_initial = lmk.copy()
             elif self.dri_reanalysis:
                 dri_face = self.model_dict["face_analysis"].predict(img_bgr)
                 if len(dri_face) == 0:                    
                     # assert self.dri_lmk_pre is not None                    
                     # Temporarily use the frame before lost
-                    lmk = self.dri_lmk_pre
+                    lmk = self.dir_initial
                 else:
                     # Re initialization
                     self.dri_reanalysis = False                    
                     lmk = self.model_dict["landmark"].predict(img_rgb, dri_face[0])
+                    slice = lmk[:,0]
+                    self.diff = slice.max()-slice.min()
                     self.dri_lmk_pre = lmk.copy()
+                    self.dir_initial = lmk.copy()
             else:
                 lmk = self.model_dict["landmark"].predict(img_rgb, self.dri_lmk_pre)
                 slice = lmk[:,0]
-                diff = slice.max()-slice.min()
-                if diff < 32: # not confident, say less than 32 pixels                    
+                diff = slice.max()-slice.min()                
+                if self.diff - diff > 20:
+                    self.dri_reanalysis = True # not confident when weird shrink
+                elif diff < 32: # not confident, say less than 32 pixels                    
                     self.dri_reanalysis = True
+                self.diff = diff
                 self.dri_lmk_pre = lmk.copy()
            
 
