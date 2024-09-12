@@ -188,7 +188,7 @@ class FasterLivePortraitPipeline:
                     img_crop, img_crop_256x256 = crop_info['img_crop'], crop_info['img_crop_256x256']
                     pitch, yaw, roll, t, exp, scale, kp = self.model_dict["motion_extractor"].predict(
                         img_crop_256x256)
-                    print(f"motion precdicted scale:{scale}")
+                    # print(f"motion precdicted scale:{scale}")
                     x_s_info = {
                         "pitch": pitch,
                         "yaw": yaw,
