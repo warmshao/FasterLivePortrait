@@ -7,16 +7,18 @@
 """
 # video
  python run.py \
- --src_image assets/examples/source/s12.jpg \
+ --src_image assets/examples/source/s39.jpg \
  --dri_video assets/examples/driving/d0.mp4 \
  --cfg configs/trt_infer.yaml \
- --paste_back
+ --paste_back \
+ --animal
 # pkl
  python run.py \
  --src_image assets/examples/source/s12.jpg \
- --dri_video assets/examples/driving/d8.pkl \
+ --dri_video ./results/2024-09-13-081710/d0.mp4.pkl \
  --cfg configs/trt_infer.yaml \
- --paste_back
+ --paste_back \
+ --animal
 """
 import os
 import argparse
@@ -168,7 +170,9 @@ def run_with_pkl(args):
 
     pipe = FasterLivePortraitPipeline(cfg=infer_cfg, is_animal=args.animal)
     ret = pipe.prepare_source(args.src_image, realtime=args.realtime)
-
+    if not ret:
+        print(f"no face in {args.src_image}! exit!")
+        return
     with open(args.dri_video, "rb") as fin:
         dri_motion_infos = pickle.load(fin)
 

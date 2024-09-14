@@ -33,26 +33,6 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
     def __init__(self, cfg, **kwargs):
         super(GradioLivePortraitPipeline, self).__init__(cfg, **kwargs)
 
-    def update_cfg(self, args_user):
-        update_ret = False
-        for key in args_user:
-            if key in self.cfg.infer_params:
-                if self.cfg.infer_params[key] != args_user[key]:
-                    update_ret = True
-                print("update infer cfg {} from {} to {}".format(key, self.cfg.infer_params[key], args_user[key]))
-                self.cfg.infer_params[key] = args_user[key]
-            elif key in self.cfg.crop_params:
-                if self.cfg.crop_params[key] != args_user[key]:
-                    update_ret = True
-                print("update crop cfg {} from {} to {}".format(key, self.cfg.crop_params[key], args_user[key]))
-                self.cfg.crop_params[key] = args_user[key]
-            else:
-                if key in self.cfg.infer_params and self.cfg.infer_params[key] != args_user[key]:
-                    update_ret = True
-                print("add {}:{} to infer cfg".format(key, args_user[key]))
-                self.cfg.infer_params[key] = args_user[key]
-        return update_ret
-
     def execute_video(
             self,
             input_source_image_path=None,

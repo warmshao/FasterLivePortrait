@@ -5,6 +5,7 @@
 # @FileName: faster_live_portrait_pipeline.py
 
 import copy
+import os.path
 import pdb
 import time
 import traceback
@@ -29,6 +30,26 @@ class FasterLivePortraitPipeline:
     def init(self, **kwargs):
         self.init_vars(**kwargs)
         self.init_models(**kwargs)
+
+    def update_cfg(self, args_user):
+        update_ret = False
+        for key in args_user:
+            if key in self.cfg.infer_params:
+                if self.cfg.infer_params[key] != args_user[key]:
+                    update_ret = True
+                print("update infer cfg {} from {} to {}".format(key, self.cfg.infer_params[key], args_user[key]))
+                self.cfg.infer_params[key] = args_user[key]
+            elif key in self.cfg.crop_params:
+                if self.cfg.crop_params[key] != args_user[key]:
+                    update_ret = True
+                print("update crop cfg {} from {} to {}".format(key, self.cfg.crop_params[key], args_user[key]))
+                self.cfg.crop_params[key] = args_user[key]
+            else:
+                if key in self.cfg.infer_params and self.cfg.infer_params[key] != args_user[key]:
+                    update_ret = True
+                print("add {}:{} to infer cfg".format(key, args_user[key]))
+                self.cfg.infer_params[key] = args_user[key]
+        return update_ret
 
     def clean_models(self, **kwargs):
         """
@@ -56,19 +77,22 @@ class FasterLivePortraitPipeline:
             self.model_dict = {}
             from src.utils.animal_landmark_runner import XPoseRunner
             from src.utils.utils import make_abs_path
+            checkpoint_dir = None
+            for model_name in self.cfg.animal_models:
+                print(f"loading model: {model_name}")
+                print(self.cfg.animal_models[model_name])
+                if checkpoint_dir is None and isinstance(self.cfg.animal_models[model_name].model_path, str):
+                    checkpoint_dir = os.path.dirname(self.cfg.animal_models[model_name].model_path)
+                self.model_dict[model_name] = getattr(models, self.cfg.animal_models[model_name]["name"])(
+                    **self.cfg.animal_models[model_name])
 
-            xpose_ckpt_path: str = make_abs_path("../checkpoints/liveportrait_animal_onnx/xpose.pth")
             xpose_config_file_path: str = make_abs_path("models/XPose/config_model/UniPose_SwinT.py")
-            xpose_embedding_cache_path: str = make_abs_path('../checkpoints/liveportrait_animal_onnx/clip_embedding')
+            xpose_ckpt_path: str = os.path.join(checkpoint_dir, "xpose.pth")
+            xpose_embedding_cache_path: str = os.path.join(checkpoint_dir, 'clip_embedding')
             self.model_dict["xpose"] = XPoseRunner(model_config_path=xpose_config_file_path,
                                                    model_checkpoint_path=xpose_ckpt_path,
                                                    embeddings_cache_path=xpose_embedding_cache_path,
                                                    flag_use_half_precision=True)
-            for model_name in self.cfg.animal_models:
-                print(f"loading model: {model_name}")
-                print(self.cfg.animal_models[model_name])
-                self.model_dict[model_name] = getattr(models, self.cfg.animal_models[model_name]["name"])(
-                    **self.cfg.animal_models[model_name])
 
     def init_vars(self, **kwargs):
         self.mask_crop = cv2.imread(self.cfg.infer_params.mask_crop_path, cv2.IMREAD_COLOR)
