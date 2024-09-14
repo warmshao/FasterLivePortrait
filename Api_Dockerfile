@@ -1,1 +1,5 @@
-From
+FROM shaoguo/faster_liveportrait:v3
+RUN mkdir -p /root/FasterLiveportrait
+COPY . /root/FasterLiveportrait
+WORKDIR /root/FasterLiveportrait
+CMD ["python", "api.py"]
