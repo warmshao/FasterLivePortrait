@@ -2,7 +2,7 @@
 
 ### Building the Image
 * Decide on an image name, for example `shaoguo/faster_liveportrait_api:v1.0`. Replace the `-t` parameter in the following command with your chosen name.
-* Run `docker build -t shaoguo/faster_liveportrait_api:v1.0 -f API_Dockerfile .`
+* Run `docker build -t shaoguo/faster_liveportrait_api:v1.0 -f Api_Dockerfile .`
 
 ### Running the Image
 Ensure that your machine has Nvidia GPU drivers installed. CUDA version should be 12.0 or higher. Two scenarios are described below.
@@ -13,7 +13,7 @@ Ensure that your machine has Nvidia GPU drivers installed. CUDA version should b
   * Set the model path environment variable `CHECKPOINT_DIR`. If you've previously downloaded FasterLivePortrait's onnx model and converted it to trt, I recommend mapping the model files into the container using `-v`, for example `-v E:\my_projects\FasterLivePortrait\checkpoints:/root/FasterLivePortrait/checkpoints`. This avoids re-downloading the onnx model and doing trt conversion. Otherwise, I will check if `CHECKPOINT_DIR` has models, and if not, I will automatically download (ensure network connectivity) and do trt conversion, which will take considerable time.
   * Run command (note: modify the following command according to your settings):
     ```shell
-    docker run -it --gpus=all \
+    docker run -d --gpus=all \
     --name faster_liveportrait_api \
     -v E:\my_projects\FasterLivePortrait\checkpoints:/root/FasterLivePortrait/checkpoints \
     -e CHECKPOINT_DIR=/root/FasterLivePortrait/checkpoints \
@@ -23,7 +23,7 @@ Ensure that your machine has Nvidia GPU drivers installed. CUDA version should b
     shaoguo/faster_liveportrait_api:v1.0 \
     /bin/bash
     ```
-  * Normal operation should display the following log:
+  * Normal operation should display the following information(docker logs $container_id). The running logs are saved in `/root/FasterLivePortrait/logs/log_run.log`:
     ```shell
     INFO:     Application startup complete.
     INFO:     Uvicorn running on http://0.0.0.0:9871 (Press CTRL+C to quit)
