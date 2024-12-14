@@ -128,12 +128,10 @@ class FasterLivePortraitPipeline:
     def prepare_source(self, source_path, **kwargs):
         print(f"process source:{source_path} >>>>>>>>")
         try:
-            if utils.is_image(source_path):
-                self.is_source_video = False
-            elif utils.is_video(source_path):
+            if utils.is_video(source_path):
                 self.is_source_video = True
-            else:  # source input is an unknown format
-                raise Exception(f"Unknown source format: {source_path}")
+            else:
+                self.is_source_video = False
 
             if self.is_source_video:
                 src_imgs_bgr = []
@@ -395,34 +393,70 @@ class FasterLivePortraitPipeline:
             x_s_info, source_lmk, R_s, f_s, x_s, x_c_s, lip_delta_before_animation, flag_lip_zero, mask_ori_float, M = \
                 src_info[j]
             if self.cfg.infer_params.flag_relative_motion:
-                if self.is_source_video:
-                    if self.cfg.infer_params.flag_video_editing_head_rotation:
+                if self.cfg.infer_params.animation_region in ["all", "pose"]:
+                    if self.is_source_video:
+                        if self.cfg.infer_params.flag_video_editing_head_rotation:
+                            R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
+                            R_new = self.R_d_smooth.process(R_new)
+                        else:
+                            R_new = R_s
+                    else:
                         R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
-                        R_new = self.R_d_smooth.process(R_new)
-                    else:
-                        R_new = R_s
                 else:
-                    R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
-                delta_new = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
+                    R_new = R_s
+
+                delta_new = x_s_info['exp'].copy()
+                delta_new_d = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
                 if self.is_source_video:
-                    delta_new = self.exp_smooth.process(delta_new)
-                scale_new = x_s_info['scale'] if self.is_source_video else x_s_info['scale'] * (
-                        x_d_i_info['scale'] / x_d_0_info['scale'])
-                t_new = x_s_info['t'] if self.is_source_video else x_s_info['t'] + (x_d_i_info['t'] - x_d_0_info['t'])
+                    delta_new_d = self.exp_smooth.process(delta_new_d)
+                if self.cfg.infer_params.animation_region in ["all", "exp"]:
+                    delta_new = delta_new_d.copy()
+                elif self.cfg.infer_params.animation_region in ["lip"]:
+                    for lip_idx in [6, 12, 14, 17, 19, 20]:
+                        delta_new[:, lip_idx, :] = delta_new_d[:, lip_idx, :]
+                elif self.cfg.infer_params.animation_region in ["eyes"]:
+                    for eyes_idx in [11, 13, 15, 16, 18]:
+                        delta_new[:, eyes_idx, :] = delta_new_d[:, eyes_idx, :]
+                if self.cfg.infer_params.animation_region in ["all"]:
+                    scale_new = x_s_info['scale'] if self.is_source_video else x_s_info['scale'] * (
+                            x_d_i_info['scale'] / x_d_0_info['scale'])
+                else:
+                    scale_new = x_s_info['scale']
+                if self.cfg.infer_params.animation_region in ["all"]:
+                    t_new = x_s_info['t'] if self.is_source_video else x_s_info['t'] + (
+                            x_d_i_info['t'] - x_d_0_info['t'])
+                else:
+                    t_new = x_s_info['t']
             else:
-                if self.is_source_video:
-                    if self.cfg.infer_params.flag_video_editing_head_rotation:
-                        R_new = R_d_i
-                        R_new = self.R_d_smooth.process(R_new)
+                if self.cfg.infer_params.animation_region in ["all", "pose"]:
+                    if self.is_source_video:
+                        if self.cfg.infer_params.flag_video_editing_head_rotation:
+                            R_new = R_d_i
+                            R_new = self.R_d_smooth.process(R_new)
+                        else:
+                            R_new = R_s
                     else:
-                        R_new = R_s
+                        R_new = R_d_i
                 else:
-                    R_new = R_d_i
-                delta_new = x_d_i_info['exp'].copy()
+                    R_new = R_s
+
+                delta_new = x_s_info['exp'].copy()
+                delta_new_d = x_d_i_info['exp'].copy()
                 if self.is_source_video:
-                    delta_new = self.exp_smooth.process(delta_new)
+                    delta_new_d = self.exp_smooth.process(delta_new_d)
+                if self.cfg.infer_params.animation_region in ["all", "exp"]:
+                    delta_new = delta_new_d.copy()
+                elif self.cfg.infer_params.animation_region in ["lip"]:
+                    for lip_idx in [6, 12, 14, 17, 19, 20]:
+                        delta_new[:, lip_idx, :] = delta_new_d[:, lip_idx, :]
+                elif self.cfg.infer_params.animation_region in ["eyes"]:
+                    for eyes_idx in [11, 13, 15, 16, 18]:
+                        delta_new[:, eyes_idx, :] = delta_new_d[:, eyes_idx, :]
                 scale_new = x_s_info['scale'].copy()
-                t_new = x_d_i_info['t'].copy()
+                if self.cfg.infer_params.animation_region in ["all"]:
+                    t_new = x_d_i_info['t'].copy()
+                else:
+                    t_new = x_s_info['t'].copy()
 
             t_new[..., 2] = 0  # zero tz
             x_d_i_new = scale_new * (x_c_s @ R_new + delta_new) + t_new
@@ -503,34 +537,70 @@ class FasterLivePortraitPipeline:
             x_s_info, source_lmk, R_s, f_s, x_s, x_c_s, lip_delta_before_animation, flag_lip_zero, mask_ori_float, M = \
                 src_info[j]
             if self.cfg.infer_params.flag_relative_motion:
-                if self.is_source_video:
-                    if self.cfg.infer_params.flag_video_editing_head_rotation:
+                if self.cfg.infer_params.animation_region in ["all", "pose"]:
+                    if self.is_source_video:
+                        if self.cfg.infer_params.flag_video_editing_head_rotation:
+                            R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
+                            R_new = self.R_d_smooth.process(R_new)
+                        else:
+                            R_new = R_s
+                    else:
                         R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
-                        R_new = self.R_d_smooth.process(R_new)
-                    else:
-                        R_new = R_s
                 else:
-                    R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
-                delta_new = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
+                    R_new = R_s
+
+                delta_new = x_s_info['exp'].copy()
+                delta_new_d = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
                 if self.is_source_video:
-                    delta_new = self.exp_smooth.process(delta_new)
-                scale_new = x_s_info['scale'] if self.is_source_video else x_s_info['scale'] * (
-                        x_d_i_info['scale'] / x_d_0_info['scale'])
-                t_new = x_s_info['t'] if self.is_source_video else x_s_info['t'] + (x_d_i_info['t'] - x_d_0_info['t'])
+                    delta_new_d = self.exp_smooth.process(delta_new_d)
+                if self.cfg.infer_params.animation_region in ["all", "exp"]:
+                    delta_new = delta_new_d.copy()
+                elif self.cfg.infer_params.animation_region in ["lip"]:
+                    for lip_idx in [6, 12, 14, 17, 19, 20]:
+                        delta_new[:, lip_idx, :] = delta_new_d[:, lip_idx, :]
+                elif self.cfg.infer_params.animation_region in ["eyes"]:
+                    for eyes_idx in [11, 13, 15, 16, 18]:
+                        delta_new[:, eyes_idx, :] = delta_new_d[:, eyes_idx, :]
+                if self.cfg.infer_params.animation_region in ["all"]:
+                    scale_new = x_s_info['scale'] if self.is_source_video else x_s_info['scale'] * (
+                            x_d_i_info['scale'] / x_d_0_info['scale'])
+                else:
+                    scale_new = x_s_info['scale']
+                if self.cfg.infer_params.animation_region in ["all"]:
+                    t_new = x_s_info['t'] if self.is_source_video else x_s_info['t'] + (
+                            x_d_i_info['t'] - x_d_0_info['t'])
+                else:
+                    t_new = x_s_info['t']
             else:
-                if self.is_source_video:
-                    if self.cfg.infer_params.flag_video_editing_head_rotation:
-                        R_new = R_d_i
-                        R_new = self.R_d_smooth.process(R_new)
+                if self.cfg.infer_params.animation_region in ["all", "pose"]:
+                    if self.is_source_video:
+                        if self.cfg.infer_params.flag_video_editing_head_rotation:
+                            R_new = R_d_i
+                            R_new = self.R_d_smooth.process(R_new)
+                        else:
+                            R_new = R_s
                     else:
-                        R_new = R_s
+                        R_new = R_d_i
                 else:
-                    R_new = R_d_i
-                delta_new = x_d_i_info['exp'].copy()
+                    R_new = R_s
+
+                delta_new = x_s_info['exp'].copy()
+                delta_new_d = x_d_i_info['exp'].copy()
                 if self.is_source_video:
-                    delta_new = self.exp_smooth.process(delta_new)
+                    delta_new_d = self.exp_smooth.process(delta_new_d)
+                if self.cfg.infer_params.animation_region in ["all", "exp"]:
+                    delta_new = delta_new_d.copy()
+                elif self.cfg.infer_params.animation_region in ["lip"]:
+                    for lip_idx in [6, 12, 14, 17, 19, 20]:
+                        delta_new[lip_idx, :] = delta_new_d[lip_idx, :]
+                elif self.cfg.infer_params.animation_region in ["eyes"]:
+                    for eyes_idx in [11, 13, 15, 16, 18]:
+                        delta_new[eyes_idx, :] = delta_new_d[eyes_idx, :]
                 scale_new = x_s_info['scale'].copy()
-                t_new = x_d_i_info['t'].copy()
+                if self.cfg.infer_params.animation_region in ["all"]:
+                    t_new = x_d_i_info['t'].copy()
+                else:
+                    t_new = x_s_info['t'].copy()
 
             t_new[..., 2] = 0  # zero tz
             x_d_i_new = scale_new * (x_c_s @ R_new + delta_new) + t_new

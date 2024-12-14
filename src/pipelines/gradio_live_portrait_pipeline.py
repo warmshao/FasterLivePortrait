@@ -12,6 +12,7 @@ import os
 import time
 from tqdm import tqdm
 import subprocess
+import pickle
 import numpy as np
 from .faster_live_portrait_pipeline import FasterLivePortraitPipeline
 from ..utils.utils import video_has_audio
@@ -38,6 +39,8 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             input_source_image_path=None,
             input_source_video_path=None,
             input_driving_video_path=None,
+            input_driving_image_path=None,
+            input_driving_pickle_path=None,
             flag_relative_input=True,
             flag_do_crop_input=True,
             flag_remap_input=True,
@@ -46,6 +49,7 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             flag_crop_driving_video_input=True,
             flag_video_editing_head_rotation=False,
             flag_is_animal=False,
+            animation_region="all",
             scale=2.3,
             vx_ratio=0.0,
             vy_ratio=-0.125,
@@ -54,23 +58,29 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             vy_ratio_crop_driving_video=-0.1,
             driving_smooth_observation_variance=1e-7,
             tab_selection=None,
+            v_tab_selection=None
     ):
         """ for video driven potrait animation
         """
-        if tab_selection == 'Image':
-            input_source_path = input_source_image_path
-        elif tab_selection == 'Video':
+        if tab_selection == 'Video':
             input_source_path = input_source_video_path
         else:
             input_source_path = input_source_image_path
 
+        if v_tab_selection == 'Image':
+            input_driving_path = str(input_driving_image_path)
+        elif v_tab_selection == 'Pickle':
+            input_driving_path = str(input_driving_pickle_path)
+        else:
+            input_driving_path = str(input_driving_video_path)
+
         if flag_is_animal != self.is_animal:
             self.init_models(is_animal=flag_is_animal)
 
-        if input_source_path is not None and input_driving_video_path is not None:
+        if input_source_path and input_driving_path:
             args_user = {
                 'source': input_source_path,
-                'driving': input_driving_video_path,
+                'driving': input_driving_path,
                 'flag_relative_motion': flag_relative_input,
                 'flag_do_crop': flag_do_crop_input,
                 'flag_pasteback': flag_remap_input,
@@ -85,18 +95,70 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
                 'dri_vx_ratio': vx_ratio_crop_driving_video,
                 'dri_vy_ratio': vy_ratio_crop_driving_video,
                 'driving_smooth_observation_variance': driving_smooth_observation_variance,
+                'animation_region': animation_region
             }
             # update config from user input
             update_ret = self.update_cfg(args_user)
-            # video driven animation
-            video_path, video_path_concat, total_time = self.run_local(input_driving_video_path, input_source_path,
-                                                                       update_ret=update_ret)
-            gr.Info(f"Run successfully! Cost: {total_time} seconds!", duration=3)
-            return video_path, video_path_concat,
+            if v_tab_selection == 'Video':
+                # video driven animation
+                video_path, video_path_concat, total_time = self.run_video_driving(input_driving_path,
+                                                                                   input_source_path,
+                                                                                   update_ret=update_ret)
+                gr.Info(f"Run successfully! Cost: {total_time} seconds!", duration=3)
+                return gr.update(visible=True), video_path, gr.update(visible=True), video_path_concat, gr.update(
+                    visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
+            elif v_tab_selection == 'Pickle':
+                # pickle driven animation
+                video_path, video_path_concat, total_time = self.run_pickle_driving(input_driving_path,
+                                                                                    input_source_path,
+                                                                                    update_ret=update_ret)
+                gr.Info(f"Run successfully! Cost: {total_time} seconds!", duration=3)
+                return gr.update(visible=True), video_path, gr.update(visible=True), video_path_concat, gr.update(
+                    visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
+            else:
+                # video driven animation
+                image_path, image_path_concat, total_time = self.run_image_driving(input_driving_path,
+                                                                                   input_source_path,
+                                                                                   update_ret=update_ret)
+                gr.Info(f"Run successfully! Cost: {total_time} seconds!", duration=3)
+                return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(
+                    visible=False), gr.update(visible=True), image_path, gr.update(
+                    visible=True), image_path_concat
         else:
             raise gr.Error("The input source portrait or driving video hasn't been prepared yet 💥!", duration=5)
 
-    def run_local(self, driving_video_path, source_path, **kwargs):
+    def run_image_driving(self, driving_image_path, source_path, **kwargs):
+        if self.source_path != source_path or kwargs.get("update_ret", False):
+            # 如果不一样要重新初始化变量
+            self.init_vars(**kwargs)
+            ret = self.prepare_source(source_path)
+            if not ret:
+                raise gr.Error(f"Error in processing source:{source_path} 💥!", duration=5)
+
+        driving_image = cv2.imread(driving_image_path)
+        save_dir = f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}"
+        os.makedirs(save_dir, exist_ok=True)
+
+        image_crop_path = os.path.join(save_dir,
+                                       f"{os.path.basename(source_path)}-{os.path.basename(driving_image_path)}-crop.jpg")
+        image_org_path = os.path.join(save_dir,
+                                      f"{os.path.basename(source_path)}-{os.path.basename(driving_image_path)}-org.jpg")
+
+        t0 = time.time()
+        dri_crop, out_crop, out_org = self.run(driving_image, self.src_imgs[0], self.src_infos[0],
+                                               first_frame=True)[:3]
+
+        dri_crop = cv2.resize(dri_crop, (512, 512))
+        out_crop = np.concatenate([dri_crop, out_crop], axis=1)
+        out_crop = cv2.cvtColor(out_crop, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(image_crop_path, out_crop)
+        out_org = cv2.cvtColor(out_org, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(image_org_path, out_org)
+        total_time = time.time() - t0
+
+        return image_org_path, image_crop_path, total_time
+
+    def run_video_driving(self, driving_video_path, source_path, **kwargs):
         t00 = time.time()
 
         if self.source_path != source_path or kwargs.get("update_ret", False):
@@ -197,6 +259,75 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             return vsave_org_path_new, vsave_crop_path_new, total_time
         else:
             return vsave_org_path, vsave_crop_path, total_time
+
+    def run_pickle_driving(self, driving_pickle_path, source_path, **kwargs):
+        t00 = time.time()
+
+        if self.source_path != source_path or kwargs.get("update_ret", False):
+            # 如果不一样要重新初始化变量
+            self.init_vars(**kwargs)
+            ret = self.prepare_source(source_path)
+            if not ret:
+                raise gr.Error(f"Error in processing source:{source_path} 💥!", duration=5)
+
+        with open(driving_pickle_path, "rb") as fin:
+            dri_motion_infos = pickle.load(fin)
+
+        if self.is_source_video:
+            duration, fps = utils.get_video_info(self.source_path)
+            fps = int(fps)
+        else:
+            fps = int(dri_motion_infos["output_fps"])
+
+        motion_lst = dri_motion_infos["motion"]
+        c_eyes_lst = dri_motion_infos["c_eyes_lst"] if "c_eyes_lst" in dri_motion_infos else dri_motion_infos[
+            "c_d_eyes_lst"]
+        c_lip_lst = dri_motion_infos["c_lip_lst"] if "c_lip_lst" in dri_motion_infos else dri_motion_infos[
+            "c_d_lip_lst"]
+        dframe = len(motion_lst)
+
+        if self.is_source_video:
+            max_frame = min(dframe, len(self.src_imgs))
+        else:
+            max_frame = dframe
+        h, w = self.src_imgs[0].shape[:2]
+        save_dir = f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}"
+        os.makedirs(save_dir, exist_ok=True)
+
+        # render output video
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        vsave_crop_path = os.path.join(save_dir,
+                                       f"{os.path.basename(source_path)}-{os.path.basename(driving_pickle_path)}-crop.mp4")
+        vout_crop = cv2.VideoWriter(vsave_crop_path, fourcc, fps, (512, 512))
+        vsave_org_path = os.path.join(save_dir,
+                                      f"{os.path.basename(source_path)}-{os.path.basename(driving_pickle_path)}-org.mp4")
+        vout_org = cv2.VideoWriter(vsave_org_path, fourcc, fps, (w, h))
+
+        infer_times = []
+        for frame_ind in tqdm(range(max_frame)):
+            t0 = time.time()
+            first_frame = frame_ind == 0
+            dri_motion_info_ = [motion_lst[frame_ind], c_eyes_lst[frame_ind], c_lip_lst[frame_ind]]
+            if self.is_source_video:
+                out_crop, out_org = self.run_with_pkl(dri_motion_info_, self.src_imgs[frame_ind],
+                                                      self.src_infos[frame_ind],
+                                                      first_frame=first_frame)[:3]
+            else:
+                out_crop, out_org = self.run_with_pkl(dri_motion_info_, self.src_imgs[0], self.src_infos[0],
+                                                      first_frame=first_frame)[:3]
+            if out_crop is None:
+                print(f"no face in driving frame:{frame_ind}")
+                continue
+            infer_times.append(time.time() - t0)
+            out_crop = cv2.cvtColor(out_crop, cv2.COLOR_RGB2BGR)
+            vout_crop.write(out_crop)
+            out_org = cv2.cvtColor(out_org, cv2.COLOR_RGB2BGR)
+            vout_org.write(out_org)
+        total_time = time.time() - t00
+        vout_crop.release()
+        vout_org.release()
+
+        return vsave_org_path, vsave_crop_path, total_time
 
     def execute_image(self, input_eye_ratio: float, input_lip_ratio: float, input_image, flag_do_crop=True):
         """ for single image retargeting

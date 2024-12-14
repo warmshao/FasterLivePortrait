@@ -15,6 +15,13 @@
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **Changelog**
+- [x] **2024/12/14:** Added pickle and image driving, as well as region driving animation_region.
+  - Please update the latest code. Windows users can directly double-click `update.bat` to update, but note that your local code will be overwritten.
+  - Running `python run.py` now automatically saves the corresponding pickle to the same directory as the driving video, allowing for direct reuse.
+  - After opening webui, you can experience the new pickle and image driving, as well as the region driving animation_region features. Note that for image driving, remember to disable `relative motion`.
+- [x] **2024/08/11:** Optimized paste_back speed and fixed some bugs.
+  - Used torchgeometry + cuda to optimize the paste_back function, significantly improving speed. Example: `python run.py --src_image assets/examples/source/s39.jpg --dri_video assets/examples/driving/d0.mp4 --cfg configs/trt_infer.yaml --paste_back --animal`
+  - Fixed issues with Xpose ops causing errors on some GPUs and other bugs. Please use the latest docker image: `docker pull shaoguo/faster_liveportrait:v3`
 - [x] **2024/08/11:** Optimized paste_back speed and fixed some bugs.
   - Used torchgeometry + cuda to optimize the paste_back function, significantly improving speed. Example: `python run.py --src_image assets/examples/source/s39.jpg --dri_video assets/examples/driving/d0.mp4 --cfg configs/trt_infer.yaml --paste_back --animal`
   - Fixed issues with Xpose ops causing errors on some GPUs and other bugs. Please use the latest docker image: `docker pull shaoguo/faster_liveportrait:v3`
@@ -28,7 +35,7 @@
     <video src="https://github.com/user-attachments/assets/dc37e2dd-551a-43b0-8929-fc5d5fe16ec5" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
     
   - Using MediaPipe model to replace InsightFace
-    - For web usage: `python app.py --mode trt --mp` or `python app.py --mode onnx --mp`
+    - For web usage: `python webui.py --mode trt --mp` or `python webui.py --mode onnx --mp`
     - For local webcam: `python run.py --src_image assets/examples/source/s12.jpg --dri_video 0 --cfg configs/trt_mp_infer.yaml`
 - [x] **2024/07/24:** Windows integration package, no installation required, one-click run, supports TensorRT and OnnxruntimeGPU. Thanks to @zhanghongyong123456 for their contribution in this [issue](https://github.com/warmshao/FasterLivePortrait/issues/22).
   - [Optional] If you have already installed CUDA and cuDNN on your Windows computer, please skip this step. I have only verified on CUDA 12.2. If you haven't installed CUDA or encounter CUDA-related errors, you need to follow these steps:
@@ -43,7 +50,7 @@
   - Set up a Python 3.10 virtual environment. Recommend using [miniforge](https://github.com/conda-forge/miniforge): `conda create -n flip python=3.10 && conda activate flip`
   - Install requirements: `pip install -r requirements_macos.txt`
   - Download ONNX files: `huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`
-  - Test: `python app.py --mode onnx`
+  - Test: `python webui.py --mode onnx`
 - [x] **2024/07/17:** Added support for Docker environment, providing a runnable image.
 
 ### Environment Setup
@@ -115,8 +122,8 @@
    --realtime
   ```
 ### Gradio App
-* onnxruntime: `python app.py --mode onnx`
-* tensorrt: `python app.py --mode trt`
+* onnxruntime: `python webui.py --mode onnx`
+* tensorrt: `python webui.py --mode trt`
 * The default port is 9870. Open the webpage: `http://localhost:9870/`
 
 ### About Me
