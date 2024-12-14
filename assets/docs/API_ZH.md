@@ -3,7 +3,7 @@
 ### 构建镜像
 
 * 确定镜像的名字，比如 `shaoguo/faster_liveportrait_api:v1.0`。确认后替换为下面命令 `-t` 的参数。
-* 运行 `docker build -t shaoguo/faster_liveportrait_api:v1.0 -f API_Dockerfile .`
+* 运行 `docker build -t shaoguo/faster_liveportrait_api:v1.0 -f DockerfileAPI .`
 
 ### 运行镜像
 

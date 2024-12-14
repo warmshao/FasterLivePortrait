@@ -1,5 +1,5 @@
 ## FasterLivePortrait：Bring portrait to life in Real Time!
-<a href="README.md">English</a> | <a href="README_CN.md">中文</a>
+<a href="README.md">English</a> | <a href="README_ZH.md">中文</a>
 
 **原仓库: [LivePortrait](https://github.com/KwaiVGI/LivePortrait)，感谢作者的分享**
 

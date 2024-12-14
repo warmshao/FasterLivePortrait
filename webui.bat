@@ -1,0 +1,1 @@
+.\venv\python.exe .\app.py --mode trt

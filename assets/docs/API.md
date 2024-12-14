@@ -2,7 +2,7 @@
 
 ### Building the Image
 * Decide on an image name, for example `shaoguo/faster_liveportrait_api:v1.0`. Replace the `-t` parameter in the following command with your chosen name.
-* Run `docker build -t shaoguo/faster_liveportrait_api:v1.0 -f Api_Dockerfile .`
+* Run `docker build -t shaoguo/faster_liveportrait_api:v1.0 -f DockerfileAPI .`
 
 ### Running the Image
 Ensure that your machine has Nvidia GPU drivers installed. CUDA version should be 12.0 or higher. Two scenarios are described below.
