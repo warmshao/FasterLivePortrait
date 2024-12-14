@@ -1,5 +1,5 @@
 ## FasterLivePortrait：Bring portrait to life in Real Time!
-<a href="README.md">English</a> | <a href="README_CN.md">中文</a>
+<a href="README.md">English</a> | <a href="README_ZH.md">中文</a>
 
 **原仓库: [LivePortrait](https://github.com/KwaiVGI/LivePortrait)，感谢作者的分享**
 
@@ -15,6 +15,10 @@
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **日志**
+- [x] **2024/12/14:** 增加pickle和image驱动以及区域驱动`animation_region`。
+  - 请更新最新的代码，windows用户可以直接双击`update.bat`更新，但请注意本地的代码将会被覆盖。
+  - `python run.py ` 现在运行 `driving video`会自动保存对应的pickle到跟`driving video`一样的目录，可以直接复用。
+  - 打开`webui`后即可体验新的pickle和image驱动以及区域驱动`animation_region`等功能。注意image驱动记得把`relative motion`取消掉。
 - [x] **2024/08/11:** 优化paste_back的速度，修复一些bug。
   - 用torchgeometry + cuda优化paste_back函数，现在速度提升了很多。示例：`python run.py --src_image assets/examples/source/s39.jpg --dri_video assets/examples/driving/d0.mp4 --cfg configs/trt_infer.yaml --paste_back --animal`
   - 修复Xpose的ops在一些显卡运行报错的问题等bug。请使用最新的镜像:`docker pull shaoguo/faster_liveportrait:v3`
@@ -28,7 +32,7 @@
     <video src="https://github.com/user-attachments/assets/dc37e2dd-551a-43b0-8929-fc5d5fe16ec5" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
     
   - 使用mediapipe模型替代insight_face
-    - 网页端使用: `python app.py --mode trt --mp` 或 `python app.py --mode onnx --mp`
+    - 网页端使用: `python webui.py --mode trt --mp` 或 `python webui.py --mode onnx --mp`
     - 本地摄像头运行: `python run.py --src_image assets/examples/source/s12.jpg --dri_video assets/examples/driving/d0.mp4 --cfg configs/trt_mp_infer.yaml`
 - [x] **2024/07/24:** Windows的整合包, 免安装一键运行，支持TensorRT和OnnxruntimeGPU。感谢@zhanghongyong123456在[issue](https://github.com/warmshao/FasterLivePortrait/issues/22)的贡献。
   - 【可选】如果你的windows电脑已经装过cuda和cudnn，请忽略这一步。我只在cuda12.2上验证过，如果没安装cuda或报cuda相关的错，你需要按照以下步骤进行安装：
@@ -43,7 +47,7 @@
   - 安装python=3.10的虚拟环境，推荐可以用[miniforge](https://github.com/conda-forge/miniforge).`conda create -n flip python=3.10 && conda activate flip`
   - `pip install -r requirements_macos.txt`
   - 下载onnx文件: `huggingface-cli download warmshao/FasterLivePortrait --local-dir ./checkpoints`
-  - 测试: `python app.py --mode onnx`
+  - 测试: `python webui.py --mode onnx`
 - [x] **2024/07/17:** 增加docker环境的支持，提供可运行的镜像。
 
 
@@ -120,8 +124,8 @@
    --realtime
   ```
 ### Gradio App
-* onnxruntime: `python app.py --mode onnx`
-* tensorrt: `python app.py --mode trt`
+* onnxruntime: `python webui.py --mode onnx`
+* tensorrt: `python webui.py --mode trt`
 * 默认端口在9870，打开网页：`http://localhost:9870/`
 
 ### 关于我

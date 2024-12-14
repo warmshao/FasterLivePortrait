@@ -1,0 +1,7 @@
+FROM shaoguo/faster_liveportrait:v3
+USER root
+RUN mkdir -p /root/FasterLiveportrait
+RUN chown -R /root/FasterLiveportrait
+COPY . /root/FasterLiveportrait
+WORKDIR /root/FasterLiveportrait
+CMD ["/bin/bash && bash scripts/start_api.sh"]

@@ -86,6 +86,7 @@ infer_params:
   flag_pasteback: True
   flag_do_crop: True
   flag_do_rot: True
+  animation_region: "all"
 
   # NOT EXPOERTED PARAMS
   lip_normalize_threshold: 0.03 # threshold for flag_normalize_lip

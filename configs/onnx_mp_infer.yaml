@@ -94,6 +94,7 @@ infer_params:
   anchor_frame: 0 # TO IMPLEMENT
   mask_crop_path: "./assets/mask_template.png"
   driving_multiplier: 1.0
+  animation_region: "all"
 
   source_max_dim: 1280 # the max dim of height and width of source image
   source_division: 2 # make sure the height and width of source image can be divided by this number

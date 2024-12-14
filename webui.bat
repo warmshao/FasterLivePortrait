@@ -1,0 +1,1 @@
+.\venv\python.exe .\webui.py --mode trt

@@ -9,3 +9,6 @@ venv
 build
 dist
 *.eg
+checkpoints_test
+logs
+third_party
