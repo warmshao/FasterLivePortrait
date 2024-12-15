@@ -64,6 +64,11 @@ animal_models:
     name: "MediaPipeFaceModel"
     predict_type: "mp"
 
+joyvasa_models:
+  motion_model_path: "checkpoints/JoyVASA/motion_generator/motion_generator_hubert_chinese.pt"
+  audio_model_path: "checkpoints/chinese-hubert-base"
+  motion_template_path: "checkpoints/JoyVASA/motion_template/motion_template.pkl"
+
 crop_params:
   src_dsize: 512
   src_scale: 2.3
@@ -95,6 +100,9 @@ infer_params:
   mask_crop_path: "./assets/mask_template.png"
   driving_multiplier: 1.0
   animation_region: "all"
+
+  cfg_mode: "incremental"
+  cfg_scale: 1.2
 
   source_max_dim: 1280 # the max dim of height and width of source image
   source_division: 2 # make sure the height and width of source image can be divided by this number

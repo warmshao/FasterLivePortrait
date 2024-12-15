@@ -7,6 +7,7 @@
 * Achieved real-time running of LivePortrait on RTX 3090 GPU using TensorRT, reaching speeds of 30+ FPS. This is the speed for rendering a single frame, including pre- and post-processing, not just the model inference speed.
 * Implemented conversion of LivePortrait model to Onnx model, achieving inference speed of about 70ms/frame (~12 FPS) using onnxruntime-gpu on RTX 3090, facilitating cross-platform deployment.
 * Seamless support for native gradio app, with several times faster speed and support for simultaneous inference on multiple faces and Animal Model.
+* Added support for [JoyVASA](https://github.com/jdh-algo/JoyVASA), which can drive videos or images with audio.
 
 **If you find this project useful, please give it a star ✨✨**
 
@@ -15,6 +16,12 @@
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **Changelog**
+- [x] **2024/12/16:** Added support for [JoyVASA](https://github.com/jdh-algo/JoyVASA), which can drive videos or images with audio. Very cool!
+ - Update code, then download the models: `huggingface-cli download TencentGameMate/chinese-hubert-base --local-dir .\checkpoints\chinese-hubert-base` and `huggingface-cli download jdh-algo/JoyVASA --local-dir ./checkpoints/JoyVASA`
+ - After launching the webui, follow the tutorial below. When the source is a video, it's recommended to only drive the mouth movements
+  
+  <video src="https://github.com/user-attachments/assets/42fb24be-0cde-4138-9671-e52eec95e7f5" controls="controls" width="500" height="400">您的浏览器不支持播放该视频！</video>
+
 - [x] **2024/12/14:** Added pickle and image driving, as well as region driving animation_region.
   - Please update the latest code. Windows users can directly double-click `update.bat` to update, but note that your local code will be overwritten.
   - Running `python run.py` now automatically saves the corresponding pickle to the same directory as the driving video, allowing for direct reuse.

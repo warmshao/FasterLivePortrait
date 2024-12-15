@@ -169,10 +169,30 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
                             cache_examples=False,
                         )
 
+                with gr.TabItem("📁 Driving Audio") as v_tab_audio:
+                    with gr.Accordion(open=True, label="Driving Audio"):
+                        driving_audio_input = gr.Audio(
+                            value=None,
+                            type="filepath",
+                            interactive=True,
+                            show_label=False,
+                            waveform_options=gr.WaveformOptions(
+                                sample_rate=24000,
+                            ),
+                        )
+                        gr.Examples(
+                            examples=[
+                                [osp.join(example_video_dir, "a-01.wav")],
+                            ],
+                            inputs=[driving_audio_input],
+                            cache_examples=False,
+                        )
+
                 v_tab_selection = gr.Textbox(value="Video", visible=False)
                 v_tab_video.select(lambda: "Video", None, v_tab_selection)
                 v_tab_image.select(lambda: "Image", None, v_tab_selection)
                 v_tab_pickle.select(lambda: "Pickle", None, v_tab_selection)
+                v_tab_audio.select(lambda: "Audio", None, v_tab_selection)
 
             # with gr.Accordion(open=False, label="Animation Instructions"):
             # gr.Markdown(load_description("assets/gradio/gradio_description_animation.md"))
@@ -193,6 +213,7 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
                 flag_stitching = gr.Checkbox(value=True, label="stitching")
                 driving_multiplier = gr.Number(value=1.0, label="driving multiplier", minimum=0.0, maximum=2.0,
                                                step=0.02)
+                cfg_scale = gr.Number(value=4.0, label="cfg_scale", minimum=0.0, maximum=10.0, step=0.5)
                 flag_remap_input = gr.Checkbox(value=True, label="paste-back")
                 animation_region = gr.Radio(["exp", "pose", "lip", "eyes", "all"], value="all",
                                             label="animation region")
@@ -282,6 +303,7 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
             driving_video_input,
             driving_image_input,
             driving_pickle_input,
+            driving_audio_input,
             flag_relative_input,
             flag_do_crop_input,
             flag_remap_input,
@@ -300,6 +322,7 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
             driving_smooth_observation_variance,
             tab_selection,
             v_tab_selection,
+            cfg_scale
         ],
         outputs=[output_video_i2v, output_video_i2v, output_video_concat_i2v, output_video_concat_i2v,
                  output_image_i2i, output_image_i2i, output_image_concat_i2i, output_image_concat_i2i],

@@ -15,6 +15,7 @@ import subprocess
 import pickle
 import numpy as np
 from .faster_live_portrait_pipeline import FasterLivePortraitPipeline
+from .joyvasa_audio_to_motion_pipeline import JoyVASAAudio2MotionPipeline
 from ..utils.utils import video_has_audio
 from ..utils.utils import resize_to_limit, prepare_paste_back, get_rotation_matrix, calc_lip_close_ratio, \
     calc_eye_close_ratio, transform_keypoint, concat_feat
@@ -33,6 +34,7 @@ else:
 class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
     def __init__(self, cfg, **kwargs):
         super(GradioLivePortraitPipeline, self).__init__(cfg, **kwargs)
+        self.joyvasa_pipe = None
 
     def execute_video(
             self,
@@ -41,6 +43,7 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             input_driving_video_path=None,
             input_driving_image_path=None,
             input_driving_pickle_path=None,
+            input_driving_audio_path=None,
             flag_relative_input=True,
             flag_do_crop_input=True,
             flag_remap_input=True,
@@ -58,7 +61,8 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             vy_ratio_crop_driving_video=-0.1,
             driving_smooth_observation_variance=1e-7,
             tab_selection=None,
-            v_tab_selection=None
+            v_tab_selection=None,
+            cfg_scale=4.0
     ):
         """ for video driven potrait animation
         """
@@ -71,6 +75,8 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             input_driving_path = str(input_driving_image_path)
         elif v_tab_selection == 'Pickle':
             input_driving_path = str(input_driving_pickle_path)
+        elif v_tab_selection == 'Audio':
+            input_driving_path = str(input_driving_audio_path)
         else:
             input_driving_path = str(input_driving_video_path)
 
@@ -95,7 +101,8 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
                 'dri_vx_ratio': vx_ratio_crop_driving_video,
                 'dri_vy_ratio': vy_ratio_crop_driving_video,
                 'driving_smooth_observation_variance': driving_smooth_observation_variance,
-                'animation_region': animation_region
+                'animation_region': animation_region,
+                'cfg_scale': cfg_scale
             }
             # update config from user input
             update_ret = self.update_cfg(args_user)
@@ -112,6 +119,14 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
                 video_path, video_path_concat, total_time = self.run_pickle_driving(input_driving_path,
                                                                                     input_source_path,
                                                                                     update_ret=update_ret)
+                gr.Info(f"Run successfully! Cost: {total_time} seconds!", duration=3)
+                return gr.update(visible=True), video_path, gr.update(visible=True), video_path_concat, gr.update(
+                    visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
+            elif v_tab_selection == 'Audio':
+                # audio driven animation
+                video_path, video_path_concat, total_time = self.run_audio_driving(input_driving_path,
+                                                                                  input_source_path,
+                                                                                  update_ret=update_ret)
                 gr.Info(f"Run successfully! Cost: {total_time} seconds!", duration=3)
                 return gr.update(visible=True), video_path, gr.update(visible=True), video_path_concat, gr.update(
                     visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
@@ -307,7 +322,15 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
         for frame_ind in tqdm(range(max_frame)):
             t0 = time.time()
             first_frame = frame_ind == 0
-            dri_motion_info_ = [motion_lst[frame_ind], c_eyes_lst[frame_ind], c_lip_lst[frame_ind]]
+            dri_motion_info_ = [motion_lst[frame_ind]]
+            if c_eyes_lst:
+                dri_motion_info_.append(c_eyes_lst[frame_ind])
+            else:
+                dri_motion_info_.append(None)
+            if c_lip_lst:
+                dri_motion_info_.append(c_lip_lst[frame_ind])
+            else:
+                dri_motion_info_.append(None)
             if self.is_source_video:
                 out_crop, out_org = self.run_with_pkl(dri_motion_info_, self.src_imgs[frame_ind],
                                                       self.src_infos[frame_ind],
@@ -328,6 +351,115 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
         vout_org.release()
 
         return vsave_org_path, vsave_crop_path, total_time
+
+    def run_audio_driving(self, driving_audio_path, source_path, **kwargs):
+        t00 = time.time()
+
+        if self.source_path != source_path or kwargs.get("update_ret", False):
+            # 如果不一样要重新初始化变量
+            self.init_vars(**kwargs)
+            ret = self.prepare_source(source_path)
+            if not ret:
+                raise gr.Error(f"Error in processing source:{source_path} 💥!", duration=5)
+        save_dir = f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}"
+        os.makedirs(save_dir, exist_ok=True)
+
+        if self.joyvasa_pipe is None:
+            self.joyvasa_pipe = JoyVASAAudio2MotionPipeline(motion_model_path=self.cfg.joyvasa_models.motion_model_path,
+                                                            audio_model_path=self.cfg.joyvasa_models.audio_model_path,
+                                                            motion_template_path=self.cfg.joyvasa_models.motion_template_path,
+                                                            cfg_mode=self.cfg.infer_params.cfg_mode,
+                                                            cfg_scale=self.cfg.infer_params.cfg_scale
+                                                            )
+        dri_motion_infos = self.joyvasa_pipe.gen_motion_sequence(driving_audio_path)
+        motion_pickle_path = os.path.join(save_dir,
+                                          f"{os.path.basename(source_path)}-{os.path.basename(driving_audio_path)}.pkl")
+        with open(motion_pickle_path, "wb") as fw:
+            pickle.dump(dri_motion_infos, fw)
+        if self.is_source_video:
+            duration, fps = utils.get_video_info(self.source_path)
+            fps = int(fps)
+        else:
+            fps = int(dri_motion_infos["output_fps"])
+
+        motion_lst = dri_motion_infos["motion"]
+        c_eyes_lst = dri_motion_infos["c_eyes_lst"] if "c_eyes_lst" in dri_motion_infos else dri_motion_infos[
+            "c_d_eyes_lst"]
+        c_lip_lst = dri_motion_infos["c_lip_lst"] if "c_lip_lst" in dri_motion_infos else dri_motion_infos[
+            "c_d_lip_lst"]
+        dframe = len(motion_lst)
+
+        if self.is_source_video:
+            max_frame = min(dframe, len(self.src_imgs))
+        else:
+            max_frame = dframe
+        h, w = self.src_imgs[0].shape[:2]
+        save_dir = f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}"
+        os.makedirs(save_dir, exist_ok=True)
+
+        # render output video
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        vsave_crop_path = os.path.join(save_dir,
+                                       f"{os.path.basename(source_path)}-{os.path.basename(driving_audio_path)}-crop.mp4")
+        vout_crop = cv2.VideoWriter(vsave_crop_path, fourcc, fps, (512, 512))
+        vsave_org_path = os.path.join(save_dir,
+                                      f"{os.path.basename(source_path)}-{os.path.basename(driving_audio_path)}-org.mp4")
+        vout_org = cv2.VideoWriter(vsave_org_path, fourcc, fps, (w, h))
+
+        infer_times = []
+        for frame_ind in tqdm(range(max_frame)):
+            t0 = time.time()
+            first_frame = frame_ind == 0
+            dri_motion_info_ = [motion_lst[frame_ind]]
+            if c_eyes_lst:
+                dri_motion_info_.append(c_eyes_lst[frame_ind])
+            else:
+                dri_motion_info_.append(None)
+            if c_lip_lst:
+                dri_motion_info_.append(c_lip_lst[frame_ind])
+            else:
+                dri_motion_info_.append(None)
+            if self.is_source_video:
+                out_crop, out_org = self.run_with_pkl(dri_motion_info_, self.src_imgs[frame_ind],
+                                                      self.src_infos[frame_ind],
+                                                      first_frame=first_frame)[:3]
+            else:
+                out_crop, out_org = self.run_with_pkl(dri_motion_info_, self.src_imgs[0], self.src_infos[0],
+                                                      first_frame=first_frame)[:3]
+            if out_crop is None:
+                print(f"no face in driving frame:{frame_ind}")
+                continue
+            infer_times.append(time.time() - t0)
+            out_crop = cv2.cvtColor(out_crop, cv2.COLOR_RGB2BGR)
+            vout_crop.write(out_crop)
+            out_org = cv2.cvtColor(out_org, cv2.COLOR_RGB2BGR)
+            vout_org.write(out_org)
+        total_time = time.time() - t00
+        vout_crop.release()
+        vout_org.release()
+
+        vsave_crop_path_new = os.path.splitext(vsave_crop_path)[0] + "-audio.mp4"
+        vsave_org_path_new = os.path.splitext(vsave_org_path)[0] + "-audio.mp4"
+
+        duration, fps = utils.get_video_info(vsave_crop_path)
+        subprocess.call(
+            [FFMPEG, "-i", vsave_crop_path, "-i", driving_audio_path,
+             "-c:v", "libx264", "-map", "0:v", "-map", "1:a",
+             "-c:a", "aac", "-pix_fmt", "yuv420p",
+             "-shortest",  # 以最短的流为基准
+             "-t", str(duration),  # 设置时长
+             "-r", str(fps),  # 设置帧率
+             vsave_crop_path_new, "-y"])
+        subprocess.call(
+            [FFMPEG, "-i", vsave_org_path, "-i", driving_audio_path,
+             "-c:v", "libx264", "-map", "0:v", "-map", "1:a",
+             "-c:a", "aac", "-pix_fmt", "yuv420p",
+             "-shortest",  # 以最短的流为基准
+             "-t", str(duration),  # 设置时长
+             "-r", str(fps),  # 设置帧率
+             vsave_org_path_new, "-y"])
+
+        return vsave_org_path_new, vsave_crop_path_new, total_time
 
     def execute_image(self, input_eye_ratio: float, input_lip_ratio: float, input_image, flag_do_crop=True):
         """ for single image retargeting

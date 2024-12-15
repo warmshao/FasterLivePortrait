@@ -7,6 +7,7 @@
 * 通过TensorRT实现在RTX 3090显卡上**实时**运行LivePortrait，速度达到 30+ FPS. 这个速度是实测渲染出一帧的速度，而不仅仅是模型的推理时间。
 * 实现将LivePortrait模型转为Onnx模型，使用onnxruntime-gpu在RTX 3090上的推理速度约为 70ms/帧（～12 FPS），方便跨平台的部署。
 * 无缝支持原生的gradio app, 速度快了好几倍，支持多张人脸、Animal模型。
+* 增加[JoyVASA](https://github.com/jdh-algo/JoyVASA)的支持，可以用音频驱动视频或图片。
 
 **如果你觉得这个项目有用，帮我点个star吧✨✨**
 
@@ -15,6 +16,12 @@
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **日志**
+- [x] **2024/12/16:** 增加[JoyVASA](https://github.com/jdh-algo/JoyVASA)的支持，可以用音频驱动视频或图片。非常酷！
+  - 更新代码，然后下载模型: `huggingface-cli download TencentGameMate/chinese-hubert-base --local-dir .\checkpoints\chinese-hubert-base` 和 ` huggingface-cli download jdh-algo/JoyVASA --local-dir ./checkpoints/JoyVASA`
+  - 启动webui后根据以下教程使用即可，建议source 是视频的情况下只驱动嘴部
+
+   <video src="https://github.com/user-attachments/assets/42fb24be-0cde-4138-9671-e52eec95e7f5" controls="controls" width="500" height="400">您的浏览器不支持播放该视频！</video>
+  
 - [x] **2024/12/14:** 增加pickle和image驱动以及区域驱动`animation_region`。
   - 请更新最新的代码，windows用户可以直接双击`update.bat`更新，但请注意本地的代码将会被覆盖。
   - `python run.py ` 现在运行 `driving video`会自动保存对应的pickle到跟`driving video`一样的目录，可以直接复用。
