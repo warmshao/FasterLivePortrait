@@ -592,10 +592,10 @@ class FasterLivePortraitPipeline:
                     delta_new = delta_new_d.copy()
                 elif self.cfg.infer_params.animation_region in ["lip"]:
                     for lip_idx in [6, 12, 14, 17, 19, 20]:
-                        delta_new[lip_idx, :] = delta_new_d[lip_idx, :]
+                        delta_new[:, lip_idx, :] = delta_new_d[:, lip_idx, :]
                 elif self.cfg.infer_params.animation_region in ["eyes"]:
                     for eyes_idx in [11, 13, 15, 16, 18]:
-                        delta_new[eyes_idx, :] = delta_new_d[eyes_idx, :]
+                        delta_new[:, eyes_idx, :] = delta_new_d[:, eyes_idx, :]
                 scale_new = x_s_info['scale'].copy()
                 if self.cfg.infer_params.animation_region in ["all"]:
                     t_new = x_d_i_info['t'].copy()
