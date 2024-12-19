@@ -100,15 +100,14 @@ class FasterLivePortraitPipeline:
         self.src_lmk_pre = None
         self.R_d_0 = None
         self.x_d_0_info = None
-        self.R_d_smooth = utils.OneEuroFilter(4, 1)
-        self.exp_smooth = utils.OneEuroFilter(4, 1)
+        self.R_d_smooth = utils.OneEuroFilter(4, 0.3)
+        self.exp_smooth = utils.OneEuroFilter(4, 0.3)
 
         ## 记录source的信息
         self.source_path = None
         self.src_infos = []
         self.src_imgs = []
         self.is_source_video = False
-
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     def calc_combined_eye_ratio(self, c_d_eyes_i, source_lmk):
@@ -384,8 +383,8 @@ class FasterLivePortraitPipeline:
             self.R_d_0 = R_d_i.copy()
             self.x_d_0_info = copy.deepcopy(x_d_i_info)
             # realtime smooth
-            self.R_d_smooth = utils.OneEuroFilter(4, 1)
-            self.exp_smooth = utils.OneEuroFilter(4, 1)
+            self.R_d_smooth = utils.OneEuroFilter(4, 0.3)
+            self.exp_smooth = utils.OneEuroFilter(4, 0.3)
         R_d_0 = self.R_d_0.copy()
         x_d_0_info = copy.deepcopy(self.x_d_0_info)
         out_crop, out_org = None, None
@@ -406,17 +405,28 @@ class FasterLivePortraitPipeline:
                     R_new = R_s
 
                 delta_new = x_s_info['exp'].copy()
-                delta_new_d = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
-                if self.is_source_video:
-                    delta_new_d = self.exp_smooth.process(delta_new_d)
+                x_d_exp_smooth = x_d_i_info['exp']
+                # if self.is_source_video:
+                #     x_d_exp_smooth = self.exp_smooth.process(x_d_exp_smooth)
                 if self.cfg.infer_params.animation_region in ["all", "exp"]:
-                    delta_new = delta_new_d.copy()
+                    if self.is_source_video:
+                        delta_new = x_d_exp_smooth.copy()
+                    else:
+                        delta_new = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
                 elif self.cfg.infer_params.animation_region in ["lip"]:
                     for lip_idx in [6, 12, 14, 17, 19, 20]:
-                        delta_new[:, lip_idx, :] = delta_new_d[:, lip_idx, :]
+                        if self.is_source_video:
+                            delta_new[:, lip_idx, :] = x_d_exp_smooth[:, lip_idx, :]
+                        else:
+                            delta_new[:, lip_idx, :] = (x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp']))[:,
+                                                       lip_idx, :]
                 elif self.cfg.infer_params.animation_region in ["eyes"]:
                     for eyes_idx in [11, 13, 15, 16, 18]:
-                        delta_new[:, eyes_idx, :] = delta_new_d[:, eyes_idx, :]
+                        if self.is_source_video:
+                            delta_new[:, eyes_idx, :] = x_d_exp_smooth[:, eyes_idx, :]
+                        else:
+                            delta_new[:, eyes_idx, :] = (x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp']))[:,
+                                                        eyes_idx, :]
                 if self.cfg.infer_params.animation_region in ["all"]:
                     scale_new = x_s_info['scale'] if self.is_source_video else x_s_info['scale'] * (
                             x_d_i_info['scale'] / x_d_0_info['scale'])
@@ -430,30 +440,26 @@ class FasterLivePortraitPipeline:
             else:
                 if self.cfg.infer_params.animation_region in ["all", "pose"]:
                     if self.is_source_video:
-                        if self.cfg.infer_params.flag_video_editing_head_rotation:
-                            R_new = R_d_i
-                            R_new = self.R_d_smooth.process(R_new)
-                        else:
-                            R_new = R_s
+                        R_new = self.R_d_smooth.process(R_d_i)
                     else:
                         R_new = R_d_i
                 else:
                     R_new = R_s
 
                 delta_new = x_s_info['exp'].copy()
-                delta_new_d = x_d_i_info['exp'].copy()
-                if self.is_source_video:
-                    delta_new_d = self.exp_smooth.process(delta_new_d)
+                x_d_exp_smooth = x_d_i_info['exp'].copy()
+                # if self.is_source_video:
+                #     x_d_exp_smooth = self.exp_smooth.process(x_d_exp_smooth)
                 if self.cfg.infer_params.animation_region in ["all", "exp"]:
-                    delta_new = delta_new_d.copy()
+                    delta_new = x_d_exp_smooth.copy()
                 elif self.cfg.infer_params.animation_region in ["lip"]:
                     for lip_idx in [6, 12, 14, 17, 19, 20]:
-                        delta_new[:, lip_idx, :] = delta_new_d[:, lip_idx, :]
+                        delta_new[:, lip_idx, :] = x_d_exp_smooth[:, lip_idx, :]
                 elif self.cfg.infer_params.animation_region in ["eyes"]:
                     for eyes_idx in [11, 13, 15, 16, 18]:
-                        delta_new[:, eyes_idx, :] = delta_new_d[:, eyes_idx, :]
+                        delta_new[:, eyes_idx, :] = x_d_exp_smooth[:, eyes_idx, :]
                 scale_new = x_s_info['scale'].copy()
-                if self.cfg.infer_params.animation_region in ["all"]:
+                if self.cfg.infer_params.animation_region in ["all", "pose"]:
                     t_new = x_d_i_info['t'].copy()
                 else:
                     t_new = x_s_info['t'].copy()
@@ -528,8 +534,8 @@ class FasterLivePortraitPipeline:
             self.R_d_0 = R_d_i.copy()
             self.x_d_0_info = copy.deepcopy(x_d_i_info)
             # realtime smooth
-            self.R_d_smooth = utils.OneEuroFilter(4, 1)
-            self.exp_smooth = utils.OneEuroFilter(4, 1)
+            self.R_d_smooth = utils.OneEuroFilter(4, 0.3)
+            self.exp_smooth = utils.OneEuroFilter(4, 0.3)
         R_d_0 = self.R_d_0.copy()
         x_d_0_info = copy.deepcopy(self.x_d_0_info)
         out_crop, out_org = None, None
@@ -539,28 +545,40 @@ class FasterLivePortraitPipeline:
             if self.cfg.infer_params.flag_relative_motion:
                 if self.cfg.infer_params.animation_region in ["all", "pose"]:
                     if self.is_source_video:
-                        if self.cfg.infer_params.flag_video_editing_head_rotation:
-                            R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
-                            R_new = self.R_d_smooth.process(R_new)
-                        else:
-                            R_new = R_s
+                        R_new = self.R_d_smooth.process(R_d_i)
                     else:
                         R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
                 else:
                     R_new = R_s
 
                 delta_new = x_s_info['exp'].copy()
-                delta_new_d = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
-                if self.is_source_video:
-                    delta_new_d = self.exp_smooth.process(delta_new_d)
+                x_d_exp_smooth = x_d_i_info['exp']
+                # if self.is_source_video:
+                #     x_d_exp_smooth = self.exp_smooth.process(x_d_exp_smooth)
                 if self.cfg.infer_params.animation_region in ["all", "exp"]:
-                    delta_new = delta_new_d.copy()
+                    if self.is_source_video:
+                        # for idx in [1, 2, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
+                        #     delta_new[:, idx, :] = x_d_exp_smooth[:, idx, :]
+                        # delta_new[:, 3:5, 1] = x_d_exp_smooth[:, 3:5, 1]
+                        # delta_new[:, 5, 2] = x_d_exp_smooth[:, 5, 2]
+                        # delta_new[:, 8, 2] = x_d_exp_smooth[:, 8, 2]
+                        # delta_new[:, 9, 1:] = x_d_exp_smooth[:, 9, 1:]
+                        delta_new = x_d_exp_smooth.copy()
+                    else:
+                        delta_new = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
                 elif self.cfg.infer_params.animation_region in ["lip"]:
                     for lip_idx in [6, 12, 14, 17, 19, 20]:
-                        delta_new[:, lip_idx, :] = delta_new_d[:, lip_idx, :]
+                        if self.is_source_video:
+                            delta_new[:, lip_idx, :] = x_d_exp_smooth[:, lip_idx, :]
+                        else:
+                            delta_new[:, lip_idx, :] = (x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp']))[:, lip_idx, :]
                 elif self.cfg.infer_params.animation_region in ["eyes"]:
                     for eyes_idx in [11, 13, 15, 16, 18]:
-                        delta_new[:, eyes_idx, :] = delta_new_d[:, eyes_idx, :]
+                        if self.is_source_video:
+                            delta_new[:, eyes_idx, :] = x_d_exp_smooth[:, eyes_idx, :]
+                        else:
+                            delta_new[:, eyes_idx, :] = (x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp']))[:,
+                                                        eyes_idx, :]
                 if self.cfg.infer_params.animation_region in ["all"]:
                     scale_new = x_s_info['scale'] if self.is_source_video else x_s_info['scale'] * (
                             x_d_i_info['scale'] / x_d_0_info['scale'])
@@ -574,30 +592,32 @@ class FasterLivePortraitPipeline:
             else:
                 if self.cfg.infer_params.animation_region in ["all", "pose"]:
                     if self.is_source_video:
-                        if self.cfg.infer_params.flag_video_editing_head_rotation:
-                            R_new = R_d_i
-                            R_new = self.R_d_smooth.process(R_new)
-                        else:
-                            R_new = R_s
+                        R_new = self.R_d_smooth.process(R_d_i)
                     else:
                         R_new = R_d_i
                 else:
                     R_new = R_s
 
                 delta_new = x_s_info['exp'].copy()
-                delta_new_d = x_d_i_info['exp'].copy()
-                if self.is_source_video:
-                    delta_new_d = self.exp_smooth.process(delta_new_d)
+                x_d_exp_smooth = x_d_i_info['exp'].copy()
+                # if self.is_source_video:
+                #     x_d_exp_smooth = self.exp_smooth.process(x_d_exp_smooth)
                 if self.cfg.infer_params.animation_region in ["all", "exp"]:
-                    delta_new = delta_new_d.copy()
+                    # for idx in [1, 2, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
+                    #     delta_new[:, idx, :] = x_d_exp_smooth[:, idx, :]
+                    # delta_new[:, 3:5, 1] = x_d_exp_smooth[:, 3:5, 1]
+                    # delta_new[:, 5, 2] = x_d_exp_smooth[:, 5, 2]
+                    # delta_new[:, 8, 2] = x_d_exp_smooth[:, 8, 2]
+                    # delta_new[:, 9, 1:] = x_d_exp_smooth[:, 9, 1:]
+                    delta_new = x_d_exp_smooth.copy()
                 elif self.cfg.infer_params.animation_region in ["lip"]:
                     for lip_idx in [6, 12, 14, 17, 19, 20]:
-                        delta_new[:, lip_idx, :] = delta_new_d[:, lip_idx, :]
+                        delta_new[:, lip_idx, :] = x_d_exp_smooth[:, lip_idx, :]
                 elif self.cfg.infer_params.animation_region in ["eyes"]:
                     for eyes_idx in [11, 13, 15, 16, 18]:
-                        delta_new[:, eyes_idx, :] = delta_new_d[:, eyes_idx, :]
+                        delta_new[:, eyes_idx, :] = x_d_exp_smooth[:, eyes_idx, :]
                 scale_new = x_s_info['scale'].copy()
-                if self.cfg.infer_params.animation_region in ["all"]:
+                if self.cfg.infer_params.animation_region in ["all", "pose"]:
                     t_new = x_d_i_info['t'].copy()
                 else:
                     t_new = x_s_info['t'].copy()
