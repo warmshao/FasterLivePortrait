@@ -16,6 +16,7 @@
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **Changelog**
+- [x] **2024/12/22:** Add API Deployment `python api.py`, For more information, please refer to the [tutorial](assets/docs/API.md).
 - [x] **2024/12/16:** Added support for [JoyVASA](https://github.com/jdh-algo/JoyVASA), which can drive videos or images with audio. Very cool!
  - Update code, then download the models: `huggingface-cli download TencentGameMate/chinese-hubert-base --local-dir .\checkpoints\chinese-hubert-base` and `huggingface-cli download jdh-algo/JoyVASA --local-dir ./checkpoints/JoyVASA`
  - After launching the webui, follow the tutorial below. When the source is a video, it's recommended to only drive the mouth movements

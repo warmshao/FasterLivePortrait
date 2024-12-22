@@ -16,6 +16,7 @@
 <video src="https://github.com/user-attachments/assets/716d61a7-41ae-483a-874d-ea1bf345bd1a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 
 **日志**
+- [x] **2024/12/22:** 增加api部署`python api.py`, 其他参考[教程](assets/docs/API_ZH.md)使用。
 - [x] **2024/12/16:** 增加[JoyVASA](https://github.com/jdh-algo/JoyVASA)的支持，可以用音频驱动视频或图片。非常酷！
   - 更新代码，然后下载模型: `huggingface-cli download TencentGameMate/chinese-hubert-base --local-dir .\checkpoints\chinese-hubert-base` 和 ` huggingface-cli download jdh-algo/JoyVASA --local-dir ./checkpoints/JoyVASA`
   - 启动webui后根据以下教程使用即可，建议source 是视频的情况下只驱动嘴部
