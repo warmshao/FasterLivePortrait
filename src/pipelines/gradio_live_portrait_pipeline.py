@@ -371,7 +371,9 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
                                                             cfg_mode=self.cfg.infer_params.cfg_mode,
                                                             cfg_scale=self.cfg.infer_params.cfg_scale
                                                             )
+        t01 = time.time()
         dri_motion_infos = self.joyvasa_pipe.gen_motion_sequence(driving_audio_path)
+        gr.Info(f"JoyVASA cost time:{time.time() - t01}", duration=2)
         motion_pickle_path = os.path.join(save_dir,
                                           f"{os.path.basename(source_path)}-{os.path.basename(driving_audio_path)}.pkl")
         with open(motion_pickle_path, "wb") as fw:
