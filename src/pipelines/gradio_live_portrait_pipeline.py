@@ -388,7 +388,7 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
         duration, fps = utils.get_video_info(vsave_crop_path)
         subprocess.call(
             [FFMPEG, "-i", vsave_crop_path, "-i", driving_audio_path,
-             "-c:v", "libx264", "-map", "0:v", "-map", "1:a",
+             "-b:v", "10M", "-c:v", "libx264", "-map", "0:v", "-map", "1:a",
              "-c:a", "aac", "-pix_fmt", "yuv420p",
              "-shortest",  # 以最短的流为基准
              "-t", str(duration),  # 设置时长
@@ -396,7 +396,7 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
              vsave_crop_path_new, "-y"])
         subprocess.call(
             [FFMPEG, "-i", vsave_org_path, "-i", driving_audio_path,
-             "-c:v", "libx264", "-map", "0:v", "-map", "1:a",
+             "-b:v", "10M", "-c:v", "libx264", "-map", "0:v", "-map", "1:a",
              "-c:a", "aac", "-pix_fmt", "yuv420p",
              "-shortest",  # 以最短的流为基准
              "-t", str(duration),  # 设置时长
