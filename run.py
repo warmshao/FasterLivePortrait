@@ -7,8 +7,8 @@
 """
 # video
  python run.py \
- --src_image assets/examples/source/s39.jpg \
- --dri_video assets/examples/driving/d0.mp4 \
+ --src_image assets/examples/driving/d13.mp4 \
+ --dri_video assets/examples/driving/d11.mp4 \
  --cfg configs/trt_infer.yaml \
  --paste_back \
  --animal
