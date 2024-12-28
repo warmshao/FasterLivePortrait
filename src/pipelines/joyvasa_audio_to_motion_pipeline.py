@@ -15,6 +15,7 @@ import torch.nn.functional as F
 import pickle
 from tqdm import tqdm
 import pathlib
+import os
 
 from ..models.JoyVASA.dit_talking_head import DitTalkingHead
 from ..models.JoyVASA.helper import NullableArgs
@@ -28,8 +29,10 @@ class JoyVASAAudio2MotionPipeline:
 
     def __init__(self, **kwargs):
         self.device, self.dtype = utils.get_opt_device_dtype()
-        temp = pathlib.PosixPath
-        pathlib.PosixPath = pathlib.WindowsPath
+        # Check if the operating system is Windows
+        if os.name == 'nt':
+            temp = pathlib.PosixPath
+            pathlib.PosixPath = pathlib.WindowsPath
         motion_model_path = kwargs.get("motion_model_path", "")
         audio_model_path = kwargs.get("audio_model_path", "")
         motion_template_path = kwargs.get("motion_template_path", "")
@@ -46,7 +49,11 @@ class JoyVASAAudio2MotionPipeline:
         model.load_state_dict(model_data['model'], strict=False)
         model.to(self.device, dtype=self.dtype)
         model.eval()
-        pathlib.PosixPath = temp
+
+        # Restore the original PosixPath if it was changed
+        if os.name == 'nt':
+            pathlib.PosixPath = temp
+
         self.motion_generator = model
         self.n_motions = model_args.n_motions
         self.n_prev_motions = model_args.n_prev_motions
