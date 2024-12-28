@@ -229,9 +229,10 @@ class FasterLivePortraitPipeline:
                         flag_lip_zero = self.cfg.infer_params.flag_normalize_lip  # not overwrite
                         if flag_lip_zero:
                             # let lip-open scalar to be 0 at first
-                            c_d_lip_before_animation = [0.]
+                            # 似乎要调参？
+                            c_d_lip_before_animation = [0.05]
                             combined_lip_ratio_tensor_before_animation = self.calc_combined_lip_ratio(
-                                c_d_lip_before_animation, source_lmk)
+                                c_d_lip_before_animation, source_lmk.copy())
                             if combined_lip_ratio_tensor_before_animation[0][
                                 0] < self.cfg.infer_params.lip_normalize_threshold:
                                 flag_lip_zero = False
@@ -304,6 +305,179 @@ class FasterLivePortraitPipeline:
         kp_driving_new[..., :2] += delta_tx_ty
 
         return kp_driving_new
+
+    def _run(self, src_info, x_d_i_info, x_d_0_info, R_d_i, R_d_0, realtime, input_eye_ratio, input_lip_ratio,
+             I_p_pstbk, **kwargs):
+        out_crop, out_org = None, None
+        eye_delta_before_animation = None
+        for j in range(len(src_info)):
+            if self.is_source_video:
+                x_s_info, source_lmk, R_s, f_s, x_s, x_c_s, lip_delta_before_animation, flag_lip_zero, mask_ori_float, M = \
+                    src_info[j]
+                # let lip-open scalar to be 0 at first if the input is a video and flag_relative_motion
+                if not (self.cfg.infer_params.flag_normalize_lip and self.cfg.infer_params.flag_relative_motion):
+                    lip_delta_before_animation = None
+                # let eye-open scalar to be the same as the first frame if the latter is eye-open state
+                if self.cfg.infer_params.flag_source_video_eye_retargeting and source_lmk is not None:
+                    combined_eye_ratio_tensor_frame_zero = utils.calc_eye_close_ratio(src_info[0][1])
+                    c_d_eye_before_animation_frame_zero = [
+                        [combined_eye_ratio_tensor_frame_zero[0][:2].mean()]]
+                    if c_d_eye_before_animation_frame_zero[0][
+                        0] < self.cfg.infer_params.source_video_eye_retargeting_threshold:
+                        c_d_eye_before_animation_frame_zero = [[0.39]]
+                    combined_eye_ratio_tensor_before_animation = self.calc_combined_eye_ratio(
+                        c_d_eye_before_animation_frame_zero, source_lmk)
+                    eye_delta_before_animation = self.retarget_eye(x_s, combined_eye_ratio_tensor_before_animation)
+
+                if not realtime and self.cfg.infer_params.flag_pasteback and self.cfg.infer_params.flag_do_crop and \
+                        self.cfg.infer_params.flag_stitching:
+                    mask_ori_float = prepare_paste_back(self.mask_crop, M.cpu().numpy(),
+                                                        dsize=(self.src_imgs[0].shape[1], self.src_imgs[0].shape[0]))
+                    mask_ori_float = torch.from_numpy(mask_ori_float).to(self.device)
+            else:
+                x_s_info, source_lmk, R_s, f_s, x_s, x_c_s, lip_delta_before_animation, flag_lip_zero, mask_ori_float, M = \
+                    src_info[j]
+            if self.cfg.infer_params.flag_relative_motion:
+                if self.cfg.infer_params.animation_region in ["all", "pose"]:
+                    if self.is_source_video:
+                        R_new = self.R_d_smooth.process(R_d_i)
+                    else:
+                        R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
+                else:
+                    R_new = R_s
+
+                delta_new = x_s_info['exp'].copy()
+                x_d_exp_smooth = x_d_i_info['exp'].copy()
+                if self.is_source_video:
+                    x_d_exp_smooth = self.exp_smooth.process(x_d_exp_smooth)
+                if self.cfg.infer_params.animation_region in ["all", "exp"]:
+                    if self.is_source_video:
+                        for idx in [1, 2, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
+                            delta_new[:, idx, :] = x_d_exp_smooth[:, idx, :]
+                        delta_new[:, 3:5, 1] = x_d_exp_smooth[:, 3:5, 1]
+                        delta_new[:, 5, 2] = x_d_exp_smooth[:, 5, 2]
+                        delta_new[:, 8, 2] = x_d_exp_smooth[:, 8, 2]
+                        delta_new[:, 9, 1:] = x_d_exp_smooth[:, 9, 1:]
+                    else:
+                        delta_new = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
+                elif self.cfg.infer_params.animation_region in ["lip"]:
+                    for lip_idx in [6, 12, 14, 17, 19, 20]:
+                        if self.is_source_video:
+                            delta_new[:, lip_idx, :] = x_d_exp_smooth[:, lip_idx, :]
+                        else:
+                            delta_new[:, lip_idx, :] = (x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp']))[:,
+                                                       lip_idx, :]
+                elif self.cfg.infer_params.animation_region in ["eyes"]:
+                    for eyes_idx in [11, 13, 15, 16, 18]:
+                        if self.is_source_video:
+                            delta_new[:, eyes_idx, :] = x_d_exp_smooth[:, eyes_idx, :]
+                        else:
+                            delta_new[:, eyes_idx, :] = (x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp']))[:,
+                                                        eyes_idx, :]
+                if self.cfg.infer_params.animation_region in ["all"]:
+                    scale_new = x_s_info['scale'] if self.is_source_video else x_s_info['scale'] * (
+                            x_d_i_info['scale'] / x_d_0_info['scale'])
+                else:
+                    scale_new = x_s_info['scale']
+                if self.cfg.infer_params.animation_region in ["all"]:
+                    t_new = x_s_info['t'] if self.is_source_video else x_s_info['t'] + (
+                            x_d_i_info['t'] - x_d_0_info['t'])
+                else:
+                    t_new = x_s_info['t']
+            else:
+                if self.cfg.infer_params.animation_region in ["all", "pose"]:
+                    if self.is_source_video:
+                        R_new = self.R_d_smooth.process(R_d_i)
+                    else:
+                        R_new = R_d_i
+                else:
+                    R_new = R_s
+
+                delta_new = x_s_info['exp'].copy()
+                x_d_exp_smooth = x_d_i_info['exp'].copy()
+                if self.is_source_video:
+                    x_d_exp_smooth = self.exp_smooth.process(x_d_exp_smooth)
+                if self.cfg.infer_params.animation_region in ["all", "exp"]:
+                    for idx in [1, 2, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
+                        delta_new[:, idx, :] = x_d_exp_smooth[:, idx, :] if self.is_source_video else x_d_i_info['exp'][
+                                                                                                      :, idx, :]
+                    delta_new[:, 3:5, 1] = x_d_exp_smooth[:, 3:5, 1] if self.is_source_video else x_d_i_info['exp'][:,
+                                                                                                  3:5, 1]
+                    delta_new[:, 5, 2] = x_d_exp_smooth[:, 5, 2] if self.is_source_video else x_d_i_info['exp'][:,
+                                                                                              5, 2]
+                    delta_new[:, 8, 2] = x_d_exp_smooth[:, 8, 2] if self.is_source_video else x_d_i_info['exp'][:,
+                                                                                              8, 2]
+                    delta_new[:, 9, 1:] = x_d_exp_smooth[:, 9, 1:] if self.is_source_video else x_d_i_info['exp'][:,
+                                                                                                9, 1:]
+                elif self.cfg.infer_params.animation_region in ["lip"]:
+                    for lip_idx in [6, 12, 14, 17, 19, 20]:
+                        delta_new[:, lip_idx, :] = x_d_exp_smooth[:, lip_idx, :] if self.is_source_video else \
+                            x_d_i_info['exp'][:, lip_idx, :]
+                elif self.cfg.infer_params.animation_region in ["eyes"]:
+                    for eyes_idx in [11, 13, 15, 16, 18]:
+                        delta_new[:, eyes_idx, :] = x_d_exp_smooth[:, eyes_idx, :] if self.is_source_video else \
+                            x_d_i_info['exp'][:, eyes_idx, :]
+                scale_new = x_s_info['scale'].copy()
+                if self.cfg.infer_params.animation_region in ["all", "pose"]:
+                    t_new = x_d_i_info['t'].copy()
+                else:
+                    t_new = x_s_info['t'].copy()
+
+            t_new[..., 2] = 0  # zero tz
+            x_d_i_new = scale_new * (x_c_s @ R_new + delta_new) + t_new
+            if not self.is_animal:
+                # Algorithm 1:
+                if not self.cfg.infer_params.flag_stitching and not self.cfg.infer_params.flag_eye_retargeting and not self.cfg.infer_params.flag_lip_retargeting:
+                    # without stitching or retargeting
+                    if flag_lip_zero and lip_delta_before_animation is not None:
+                        x_d_i_new += lip_delta_before_animation.reshape(-1, x_s.shape[1], 3)
+                    if self.cfg.infer_params.flag_source_video_eye_retargeting and eye_delta_before_animation is not None:
+                        x_d_i_new += eye_delta_before_animation
+                elif self.cfg.infer_params.flag_stitching and not self.cfg.infer_params.flag_eye_retargeting and not self.cfg.infer_params.flag_lip_retargeting:
+                    # with stitching and without retargeting
+                    if flag_lip_zero and lip_delta_before_animation is not None:
+                        x_d_i_new = self.stitching(x_s, x_d_i_new) + lip_delta_before_animation.reshape(
+                            -1, x_s.shape[1], 3)
+                    else:
+                        x_d_i_new = self.stitching(x_s, x_d_i_new)
+                    if self.cfg.infer_params.flag_source_video_eye_retargeting and eye_delta_before_animation is not None:
+                        x_d_i_new += eye_delta_before_animation
+                else:
+                    eyes_delta, lip_delta = None, None
+                    if self.cfg.infer_params.flag_eye_retargeting:
+                        c_d_eyes_i = input_eye_ratio
+                        combined_eye_ratio_tensor = self.calc_combined_eye_ratio(c_d_eyes_i,
+                                                                                 source_lmk)
+                        # ∆_eyes,i = R_eyes(x_s; c_s,eyes, c_d,eyes,i)
+                        eyes_delta = self.retarget_eye(x_s, combined_eye_ratio_tensor)
+                    if self.cfg.infer_params.flag_lip_retargeting:
+                        c_d_lip_i = input_lip_ratio
+                        combined_lip_ratio_tensor = self.calc_combined_lip_ratio(c_d_lip_i, source_lmk)
+                        # ∆_lip,i = R_lip(x_s; c_s,lip, c_d,lip,i)
+                        lip_delta = self.retarget_lip(x_s, combined_lip_ratio_tensor)
+
+                    if self.cfg.infer_params.flag_relative_motion:  # use x_s
+                        x_d_i_new = x_s + \
+                                    (eyes_delta.reshape(-1, x_s.shape[1], 3) if eyes_delta is not None else 0) + \
+                                    (lip_delta.reshape(-1, x_s.shape[1], 3) if lip_delta is not None else 0)
+                    else:  # use x_d,i
+                        x_d_i_new = x_d_i_new + \
+                                    (eyes_delta.reshape(-1, x_s.shape[1], 3) if eyes_delta is not None else 0) + \
+                                    (lip_delta.reshape(-1, x_s.shape[1], 3) if lip_delta is not None else 0)
+
+                    if self.cfg.infer_params.flag_stitching:
+                        x_d_i_new = self.stitching(x_s, x_d_i_new)
+            else:
+                if self.cfg.infer_params.flag_stitching:
+                    x_d_i_new = self.stitching(x_s, x_d_i_new)
+
+            x_d_i_new = x_s + (x_d_i_new - x_s) * self.cfg.infer_params.driving_multiplier
+            out_crop = self.model_dict["warping_spade"].predict(f_s, x_s, x_d_i_new)
+            if not realtime and self.cfg.infer_params.flag_pasteback and self.cfg.infer_params.flag_do_crop and self.cfg.infer_params.flag_stitching:
+                # TODO: pasteback is slow, considering optimize it using multi-threading or GPU
+                # I_p_pstbk = paste_back(out_crop, crop_info['M_c2o'], I_p_pstbk, mask_ori_float)
+                I_p_pstbk = paste_back_pytorch(out_crop, M, I_p_pstbk, mask_ori_float)
+        return out_crop.to(dtype=torch.uint8).cpu().numpy(), I_p_pstbk.to(dtype=torch.uint8).cpu().numpy()
 
     def run(self, image, img_src, src_info, **kwargs):
         img_bgr = image
@@ -387,188 +561,10 @@ class FasterLivePortraitPipeline:
             self.exp_smooth = utils.OneEuroFilter(4, 0.3)
         R_d_0 = self.R_d_0.copy()
         x_d_0_info = copy.deepcopy(self.x_d_0_info)
-        out_crop, out_org = None, None
-        eye_delta_before_animation = None
-
-        for j in range(len(src_info)):
-            if self.is_source_video:
-                x_s_info, source_lmk, R_s, f_s, x_s, x_c_s, lip_delta_before_animation, flag_lip_zero, mask_ori_float, M = \
-                    src_info[j]
-                # let lip-open scalar to be 0 at first if the input is a video
-                if self.cfg.infer_params.flag_normalize_lip and self.cfg.infer_params.flag_relative_motion and source_lmk is not None:
-                    c_d_lip_before_animation = [0.]
-                    combined_lip_ratio_tensor_before_animation = self.calc_combined_lip_ratio(
-                        c_d_lip_before_animation, source_lmk)
-                    if combined_lip_ratio_tensor_before_animation[0][
-                        0] >= self.cfg.infer_params.lip_normalize_threshold:
-                        lip_delta_before_animation = self.retarget_lip(x_s, combined_lip_ratio_tensor_before_animation)
-                    else:
-                        lip_delta_before_animation = None
-
-                # let eye-open scalar to be the same as the first frame if the latter is eye-open state
-                if self.cfg.infer_params.flag_source_video_eye_retargeting and source_lmk is not None:
-                    if kwargs.get("first_frame", False):
-                        combined_eye_ratio_tensor_frame_zero = utils.calc_eye_close_ratio(src_info[0][1])
-                        c_d_eye_before_animation_frame_zero = [
-                            [combined_eye_ratio_tensor_frame_zero[0][:2].mean()]]
-                        if c_d_eye_before_animation_frame_zero[0][
-                            0] < self.cfg.infer_params.source_video_eye_retargeting_threshold:
-                            c_d_eye_before_animation_frame_zero = [[0.39]]
-                    combined_eye_ratio_tensor_before_animation = self.calc_combined_eye_ratio(
-                        c_d_eye_before_animation_frame_zero, source_lmk)
-                    eye_delta_before_animation = self.retarget_eye(x_s, combined_eye_ratio_tensor_before_animation)
-
-                if not realtime and self.cfg.infer_params.flag_pasteback and self.cfg.infer_params.flag_do_crop and \
-                        self.cfg.infer_params.flag_stitching:
-                    mask_ori_float = prepare_paste_back(self.mask_crop, M.cpu().numpy(),
-                                                        dsize=(self.src_imgs[0].shape[1], self.src_imgs[0].shape[0]))
-                    mask_ori_float = torch.from_numpy(mask_ori_float).to(self.device)
-            else:
-                x_s_info, source_lmk, R_s, f_s, x_s, x_c_s, lip_delta_before_animation, flag_lip_zero, mask_ori_float, M = \
-                    src_info[j]
-            if self.cfg.infer_params.flag_relative_motion:
-                if self.cfg.infer_params.animation_region in ["all", "pose"]:
-                    if self.is_source_video:
-                        R_new = self.R_d_smooth.process(R_d_i)
-                    else:
-                        R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
-                else:
-                    R_new = R_s
-
-                delta_new = x_s_info['exp'].copy()
-                x_d_exp_smooth = x_d_i_info['exp']
-                if self.is_source_video:
-                    x_d_exp_smooth = self.exp_smooth.process(x_d_exp_smooth)
-                if self.cfg.infer_params.animation_region in ["all", "exp"]:
-                    if self.is_source_video:
-                        for idx in [1, 2, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
-                            delta_new[:, idx, :] = x_d_exp_smooth[:, idx, :]
-                        delta_new[:, 3:5, 1] = x_d_exp_smooth[:, 3:5, 1]
-                        delta_new[:, 5, 2] = x_d_exp_smooth[:, 5, 2]
-                        delta_new[:, 8, 2] = x_d_exp_smooth[:, 8, 2]
-                        delta_new[:, 9, 1:] = x_d_exp_smooth[:, 9, 1:]
-                    else:
-                        delta_new = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
-                elif self.cfg.infer_params.animation_region in ["lip"]:
-                    for lip_idx in [6, 12, 14, 17, 19, 20]:
-                        if self.is_source_video:
-                            delta_new[:, lip_idx, :] = x_d_exp_smooth[:, lip_idx, :]
-                        else:
-                            delta_new[:, lip_idx, :] = (x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp']))[:,
-                                                       lip_idx, :]
-                elif self.cfg.infer_params.animation_region in ["eyes"]:
-                    for eyes_idx in [11, 13, 15, 16, 18]:
-                        if self.is_source_video:
-                            delta_new[:, eyes_idx, :] = x_d_exp_smooth[:, eyes_idx, :]
-                        else:
-                            delta_new[:, eyes_idx, :] = (x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp']))[:,
-                                                        eyes_idx, :]
-                if self.cfg.infer_params.animation_region in ["all"]:
-                    scale_new = x_s_info['scale'] if self.is_source_video else x_s_info['scale'] * (
-                            x_d_i_info['scale'] / x_d_0_info['scale'])
-                else:
-                    scale_new = x_s_info['scale']
-                if self.cfg.infer_params.animation_region in ["all"]:
-                    t_new = x_s_info['t'] if self.is_source_video else x_s_info['t'] + (
-                            x_d_i_info['t'] - x_d_0_info['t'])
-                else:
-                    t_new = x_s_info['t']
-            else:
-                if self.cfg.infer_params.animation_region in ["all", "pose"]:
-                    if self.is_source_video:
-                        R_new = self.R_d_smooth.process(R_d_i)
-                    else:
-                        R_new = R_d_i
-                else:
-                    R_new = R_s
-
-                delta_new = x_s_info['exp'].copy()
-                x_d_exp_smooth = x_d_i_info['exp'].copy()
-                if self.is_source_video:
-                    x_d_exp_smooth = self.exp_smooth.process(x_d_exp_smooth)
-                if self.cfg.infer_params.animation_region in ["all", "exp"]:
-                    for idx in [1, 2, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
-                        delta_new[:, idx, :] = x_d_exp_smooth[:, idx, :] if self.is_source_video else x_d_i_info['exp'][
-                                                                                                      :, idx, :]
-                    delta_new[:, 3:5, 1] = x_d_exp_smooth[:, 3:5, 1] if self.is_source_video else x_d_i_info['exp'][:,
-                                                                                                  3:5, 1]
-                    delta_new[:, 5, 2] = x_d_exp_smooth[:, 5, 2] if self.is_source_video else x_d_i_info['exp'][:,
-                                                                                              5, 2]
-                    delta_new[:, 8, 2] = x_d_exp_smooth[:, 8, 2] if self.is_source_video else x_d_i_info['exp'][:,
-                                                                                              8, 2]
-                    delta_new[:, 9, 1:] = x_d_exp_smooth[:, 9, 1:] if self.is_source_video else x_d_i_info['exp'][:,
-                                                                                                9, 1:]
-                elif self.cfg.infer_params.animation_region in ["lip"]:
-                    for lip_idx in [6, 12, 14, 17, 19, 20]:
-                        delta_new[:, lip_idx, :] = x_d_exp_smooth[:, lip_idx, :] if self.is_source_video else \
-                            x_d_i_info['exp'][:, lip_idx, :]
-                elif self.cfg.infer_params.animation_region in ["eyes"]:
-                    for eyes_idx in [11, 13, 15, 16, 18]:
-                        delta_new[:, eyes_idx, :] = x_d_exp_smooth[:, eyes_idx, :] if self.is_source_video else \
-                            x_d_i_info['exp'][:, eyes_idx, :]
-                scale_new = x_s_info['scale'].copy()
-                if self.cfg.infer_params.animation_region in ["all", "pose"]:
-                    t_new = x_d_i_info['t'].copy()
-                else:
-                    t_new = x_s_info['t'].copy()
-
-            t_new[..., 2] = 0  # zero tz
-            x_d_i_new = scale_new * (x_c_s @ R_new + delta_new) + t_new
-            if not self.is_animal:
-                # Algorithm 1:
-                if not self.cfg.infer_params.flag_stitching and not self.cfg.infer_params.flag_eye_retargeting and not self.cfg.infer_params.flag_lip_retargeting:
-                    # without stitching or retargeting
-                    if flag_lip_zero:
-                        x_d_i_new += lip_delta_before_animation.reshape(-1, x_s.shape[1], 3)
-                    if self.cfg.infer_params.flag_source_video_eye_retargeting and eye_delta_before_animation is not None:
-                        x_d_i_new += eye_delta_before_animation
-                elif self.cfg.infer_params.flag_stitching and not self.cfg.infer_params.flag_eye_retargeting and not self.cfg.infer_params.flag_lip_retargeting:
-                    # with stitching and without retargeting
-                    if flag_lip_zero:
-                        x_d_i_new = self.stitching(x_s, x_d_i_new) + lip_delta_before_animation.reshape(
-                            -1, x_s.shape[1], 3)
-                    else:
-                        x_d_i_new = self.stitching(x_s, x_d_i_new)
-                    if self.cfg.infer_params.flag_source_video_eye_retargeting and eye_delta_before_animation is not None:
-                        x_d_i_new += eye_delta_before_animation
-                else:
-                    eyes_delta, lip_delta = None, None
-                    if self.cfg.infer_params.flag_eye_retargeting:
-                        c_d_eyes_i = input_eye_ratio
-                        combined_eye_ratio_tensor = self.calc_combined_eye_ratio(c_d_eyes_i,
-                                                                                 source_lmk)
-                        # ∆_eyes,i = R_eyes(x_s; c_s,eyes, c_d,eyes,i)
-                        eyes_delta = self.retarget_eye(x_s, combined_eye_ratio_tensor)
-                    if self.cfg.infer_params.flag_lip_retargeting:
-                        c_d_lip_i = input_lip_ratio
-                        combined_lip_ratio_tensor = self.calc_combined_lip_ratio(c_d_lip_i, source_lmk)
-                        # ∆_lip,i = R_lip(x_s; c_s,lip, c_d,lip,i)
-                        lip_delta = self.retarget_lip(x_s, combined_lip_ratio_tensor)
-
-                    if self.cfg.infer_params.flag_relative_motion:  # use x_s
-                        x_d_i_new = x_s + \
-                                    (eyes_delta.reshape(-1, x_s.shape[1], 3) if eyes_delta is not None else 0) + \
-                                    (lip_delta.reshape(-1, x_s.shape[1], 3) if lip_delta is not None else 0)
-                    else:  # use x_d,i
-                        x_d_i_new = x_d_i_new + \
-                                    (eyes_delta.reshape(-1, x_s.shape[1], 3) if eyes_delta is not None else 0) + \
-                                    (lip_delta.reshape(-1, x_s.shape[1], 3) if lip_delta is not None else 0)
-
-                    if self.cfg.infer_params.flag_stitching:
-                        x_d_i_new = self.stitching(x_s, x_d_i_new)
-            else:
-                if self.cfg.infer_params.flag_stitching:
-                    x_d_i_new = self.stitching(x_s, x_d_i_new)
-
-            x_d_i_new = x_s + (x_d_i_new - x_s) * self.cfg.infer_params.driving_multiplier
-            out_crop = self.model_dict["warping_spade"].predict(f_s, x_s, x_d_i_new)
-            if not realtime and self.cfg.infer_params.flag_pasteback and self.cfg.infer_params.flag_do_crop and self.cfg.infer_params.flag_stitching:
-                # TODO: pasteback is slow, considering optimize it using multi-threading or GPU
-                # I_p_pstbk = paste_back(out_crop, crop_info['M_c2o'], I_p_pstbk, mask_ori_float)
-                I_p_pstbk = paste_back_pytorch(out_crop, M, I_p_pstbk, mask_ori_float)
-
-        return img_crop, out_crop.to(dtype=torch.uint8).cpu().numpy(), I_p_pstbk.to(
-            dtype=torch.uint8).cpu().numpy(), dri_motion_info
+        out_crop, I_p_pstbk = self._run(src_info, x_d_i_info, x_d_0_info, R_d_i, R_d_0, realtime, input_eye_ratio,
+                                        input_lip_ratio,
+                                        I_p_pstbk, **kwargs)
+        return img_crop, out_crop, I_p_pstbk, dri_motion_info
 
     def run_with_pkl(self, dri_motion_info, img_src, src_info, **kwargs):
         I_p_pstbk = torch.from_numpy(img_src).to(self.device).float()
@@ -588,187 +584,9 @@ class FasterLivePortraitPipeline:
             self.exp_smooth = utils.OneEuroFilter(4, 0.3)
         R_d_0 = self.R_d_0.copy()
         x_d_0_info = copy.deepcopy(self.x_d_0_info)
-        out_crop, out_org = None, None
-        eye_delta_before_animation = None
-
-        for j in range(len(src_info)):
-            if self.is_source_video:
-                x_s_info, source_lmk, R_s, f_s, x_s, x_c_s, lip_delta_before_animation, flag_lip_zero, mask_ori_float, M = \
-                    src_info[j]
-                # let lip-open scalar to be 0 at first if the input is a video
-                if self.cfg.infer_params.flag_normalize_lip and self.cfg.infer_params.flag_relative_motion and source_lmk is not None:
-                    c_d_lip_before_animation = [0.]
-                    combined_lip_ratio_tensor_before_animation = self.calc_combined_lip_ratio(
-                        c_d_lip_before_animation, source_lmk)
-                    if combined_lip_ratio_tensor_before_animation[0][
-                        0] >= self.cfg.infer_params.lip_normalize_threshold:
-                        lip_delta_before_animation = self.retarget_lip(x_s, combined_lip_ratio_tensor_before_animation)
-                    else:
-                        lip_delta_before_animation = None
-
-                # let eye-open scalar to be the same as the first frame if the latter is eye-open state
-                if self.cfg.infer_params.flag_source_video_eye_retargeting and source_lmk is not None:
-                    if kwargs.get("first_frame", False):
-                        combined_eye_ratio_tensor_frame_zero = utils.calc_eye_close_ratio(src_info[0][1])
-                        c_d_eye_before_animation_frame_zero = [
-                            [combined_eye_ratio_tensor_frame_zero[0][:2].mean()]]
-                        if c_d_eye_before_animation_frame_zero[0][
-                            0] < self.cfg.infer_params.source_video_eye_retargeting_threshold:
-                            c_d_eye_before_animation_frame_zero = [[0.39]]
-                    combined_eye_ratio_tensor_before_animation = self.calc_combined_eye_ratio(
-                        c_d_eye_before_animation_frame_zero, source_lmk)
-                    eye_delta_before_animation = self.retarget_eye(x_s, combined_eye_ratio_tensor_before_animation)
-
-                if not realtime and self.cfg.infer_params.flag_pasteback and self.cfg.infer_params.flag_do_crop and \
-                        self.cfg.infer_params.flag_stitching:
-                    mask_ori_float = prepare_paste_back(self.mask_crop, M.cpu().numpy(),
-                                                        dsize=(self.src_imgs[0].shape[1], self.src_imgs[0].shape[0]))
-                    mask_ori_float = torch.from_numpy(mask_ori_float).to(self.device)
-            else:
-                x_s_info, source_lmk, R_s, f_s, x_s, x_c_s, lip_delta_before_animation, flag_lip_zero, mask_ori_float, M = \
-                    src_info[j]
-            if self.cfg.infer_params.flag_relative_motion:
-                if self.cfg.infer_params.animation_region in ["all", "pose"]:
-                    if self.is_source_video:
-                        R_new = self.R_d_smooth.process(R_d_i)
-                    else:
-                        R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
-                else:
-                    R_new = R_s
-
-                delta_new = x_s_info['exp'].copy()
-                x_d_exp_smooth = x_d_i_info['exp']
-                if self.is_source_video:
-                    x_d_exp_smooth = self.exp_smooth.process(x_d_exp_smooth)
-                if self.cfg.infer_params.animation_region in ["all", "exp"]:
-                    if self.is_source_video:
-                        for idx in [1, 2, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
-                            delta_new[:, idx, :] = x_d_exp_smooth[:, idx, :]
-                        delta_new[:, 3:5, 1] = x_d_exp_smooth[:, 3:5, 1]
-                        delta_new[:, 5, 2] = x_d_exp_smooth[:, 5, 2]
-                        delta_new[:, 8, 2] = x_d_exp_smooth[:, 8, 2]
-                        delta_new[:, 9, 1:] = x_d_exp_smooth[:, 9, 1:]
-                    else:
-                        delta_new = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
-                elif self.cfg.infer_params.animation_region in ["lip"]:
-                    for lip_idx in [6, 12, 14, 17, 19, 20]:
-                        if self.is_source_video:
-                            delta_new[:, lip_idx, :] = x_d_exp_smooth[:, lip_idx, :]
-                        else:
-                            delta_new[:, lip_idx, :] = (x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp']))[:,
-                                                       lip_idx, :]
-                elif self.cfg.infer_params.animation_region in ["eyes"]:
-                    for eyes_idx in [11, 13, 15, 16, 18]:
-                        if self.is_source_video:
-                            delta_new[:, eyes_idx, :] = x_d_exp_smooth[:, eyes_idx, :]
-                        else:
-                            delta_new[:, eyes_idx, :] = (x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp']))[:,
-                                                        eyes_idx, :]
-                if self.cfg.infer_params.animation_region in ["all"]:
-                    scale_new = x_s_info['scale'] if self.is_source_video else x_s_info['scale'] * (
-                            x_d_i_info['scale'] / x_d_0_info['scale'])
-                else:
-                    scale_new = x_s_info['scale']
-                if self.cfg.infer_params.animation_region in ["all"]:
-                    t_new = x_s_info['t'] if self.is_source_video else x_s_info['t'] + (
-                            x_d_i_info['t'] - x_d_0_info['t'])
-                else:
-                    t_new = x_s_info['t']
-            else:
-                if self.cfg.infer_params.animation_region in ["all", "pose"]:
-                    if self.is_source_video:
-                        R_new = self.R_d_smooth.process(R_d_i)
-                    else:
-                        R_new = R_d_i
-                else:
-                    R_new = R_s
-
-                delta_new = x_s_info['exp'].copy()
-                x_d_exp_smooth = x_d_i_info['exp'].copy()
-                if self.is_source_video:
-                    x_d_exp_smooth = self.exp_smooth.process(x_d_exp_smooth)
-                if self.cfg.infer_params.animation_region in ["all", "exp"]:
-                    for idx in [1, 2, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
-                        delta_new[:, idx, :] = x_d_exp_smooth[:, idx, :] if self.is_source_video else x_d_i_info['exp'][
-                                                                                                      :, idx, :]
-                    delta_new[:, 3:5, 1] = x_d_exp_smooth[:, 3:5, 1] if self.is_source_video else x_d_i_info['exp'][:,
-                                                                                                  3:5, 1]
-                    delta_new[:, 5, 2] = x_d_exp_smooth[:, 5, 2] if self.is_source_video else x_d_i_info['exp'][:,
-                                                                                              5, 2]
-                    delta_new[:, 8, 2] = x_d_exp_smooth[:, 8, 2] if self.is_source_video else x_d_i_info['exp'][:,
-                                                                                              8, 2]
-                    delta_new[:, 9, 1:] = x_d_exp_smooth[:, 9, 1:] if self.is_source_video else x_d_i_info['exp'][:,
-                                                                                                9, 1:]
-                elif self.cfg.infer_params.animation_region in ["lip"]:
-                    for lip_idx in [6, 12, 14, 17, 19, 20]:
-                        delta_new[:, lip_idx, :] = x_d_exp_smooth[:, lip_idx, :] if self.is_source_video else \
-                            x_d_i_info['exp'][:, lip_idx, :]
-                elif self.cfg.infer_params.animation_region in ["eyes"]:
-                    for eyes_idx in [11, 13, 15, 16, 18]:
-                        delta_new[:, eyes_idx, :] = x_d_exp_smooth[:, eyes_idx, :] if self.is_source_video else \
-                            x_d_i_info['exp'][:, eyes_idx, :]
-                scale_new = x_s_info['scale'].copy()
-                if self.cfg.infer_params.animation_region in ["all", "pose"]:
-                    t_new = x_d_i_info['t'].copy()
-                else:
-                    t_new = x_s_info['t'].copy()
-
-            t_new[..., 2] = 0  # zero tz
-            x_d_i_new = scale_new * (x_c_s @ R_new + delta_new) + t_new
-            if not self.is_animal:
-                # Algorithm 1:
-                if not self.cfg.infer_params.flag_stitching and not self.cfg.infer_params.flag_eye_retargeting and not self.cfg.infer_params.flag_lip_retargeting:
-                    # without stitching or retargeting
-                    if flag_lip_zero:
-                        x_d_i_new += lip_delta_before_animation.reshape(-1, x_s.shape[1], 3)
-                    if self.cfg.infer_params.flag_source_video_eye_retargeting and eye_delta_before_animation is not None:
-                        x_d_i_new += eye_delta_before_animation
-                elif self.cfg.infer_params.flag_stitching and not self.cfg.infer_params.flag_eye_retargeting and not self.cfg.infer_params.flag_lip_retargeting:
-                    # with stitching and without retargeting
-                    if flag_lip_zero:
-                        x_d_i_new = self.stitching(x_s, x_d_i_new) + lip_delta_before_animation.reshape(
-                            -1, x_s.shape[1], 3)
-                    else:
-                        x_d_i_new = self.stitching(x_s, x_d_i_new)
-                    if self.cfg.infer_params.flag_source_video_eye_retargeting and eye_delta_before_animation is not None:
-                        x_d_i_new += eye_delta_before_animation
-                else:
-                    eyes_delta, lip_delta = None, None
-                    if self.cfg.infer_params.flag_eye_retargeting:
-                        c_d_eyes_i = input_eye_ratio
-                        combined_eye_ratio_tensor = self.calc_combined_eye_ratio(c_d_eyes_i,
-                                                                                 source_lmk)
-                        # ∆_eyes,i = R_eyes(x_s; c_s,eyes, c_d,eyes,i)
-                        eyes_delta = self.retarget_eye(x_s, combined_eye_ratio_tensor)
-                    if self.cfg.infer_params.flag_lip_retargeting:
-                        c_d_lip_i = input_lip_ratio
-                        combined_lip_ratio_tensor = self.calc_combined_lip_ratio(c_d_lip_i, source_lmk)
-                        # ∆_lip,i = R_lip(x_s; c_s,lip, c_d,lip,i)
-                        lip_delta = self.retarget_lip(x_s, combined_lip_ratio_tensor)
-
-                    if self.cfg.infer_params.flag_relative_motion:  # use x_s
-                        x_d_i_new = x_s + \
-                                    (eyes_delta.reshape(-1, x_s.shape[1], 3) if eyes_delta is not None else 0) + \
-                                    (lip_delta.reshape(-1, x_s.shape[1], 3) if lip_delta is not None else 0)
-                    else:  # use x_d,i
-                        x_d_i_new = x_d_i_new + \
-                                    (eyes_delta.reshape(-1, x_s.shape[1], 3) if eyes_delta is not None else 0) + \
-                                    (lip_delta.reshape(-1, x_s.shape[1], 3) if lip_delta is not None else 0)
-
-                    if self.cfg.infer_params.flag_stitching:
-                        x_d_i_new = self.stitching(x_s, x_d_i_new)
-            else:
-                if self.cfg.infer_params.flag_stitching:
-                    x_d_i_new = self.stitching(x_s, x_d_i_new)
-
-            x_d_i_new = x_s + (x_d_i_new - x_s) * self.cfg.infer_params.driving_multiplier
-            out_crop = self.model_dict["warping_spade"].predict(f_s, x_s, x_d_i_new)
-            if not realtime and self.cfg.infer_params.flag_pasteback and self.cfg.infer_params.flag_do_crop and self.cfg.infer_params.flag_stitching:
-                # TODO: pasteback is slow, considering optimize it using multi-threading or GPU
-                # I_p_pstbk = paste_back(out_crop, crop_info['M_c2o'], I_p_pstbk, mask_ori_float)
-                I_p_pstbk = paste_back_pytorch(out_crop, M, I_p_pstbk, mask_ori_float)
-
-        return out_crop.to(dtype=torch.uint8).cpu().numpy(), I_p_pstbk.to(dtype=torch.uint8).cpu().numpy()
+        out_crop, I_p_pstbk = self._run(src_info, x_d_i_info, x_d_0_info, R_d_i, R_d_0, realtime, input_eye_ratio,
+                                        input_lip_ratio, I_p_pstbk, **kwargs)
+        return out_crop, I_p_pstbk
 
     def __del__(self):
         self.clean_models()
