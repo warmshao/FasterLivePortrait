@@ -85,7 +85,7 @@
 * (Ignored in Docker)If you want to use onnxruntime cpu inference, simply `pip install onnxruntime`. However, cpu inference is extremely slow and not recommended. The latest onnxruntime-gpu still doesn't support grid_sample cuda, but I found a branch that supports it. Follow these steps to install `onnxruntime-gpu` from source:
   * `git clone https://github.com/microsoft/onnxruntime`
   * `git checkout liqun/ImageDecoder-cuda`. Thanks to liqun for the grid_sample with cuda implementation!
-  * Run the following commands to compile, changing `cuda_version` and `CMAKE_CUDA_ARCHITECTURES` according to your machine:
+  * Run the following commands to compile, changing `cuda_version` and `CMAKE_CUDA_ARCHITECTURES` according to your machine (your cuDNN version must be 8.x, 9.x is not compatible):
   ```shell
   ./build.sh --parallel \
   --build_shared_lib --use_cuda \
@@ -106,7 +106,7 @@
      --cfg configs/onnx_infer.yaml
      ```
 ### TensorRT Inference
-* (Ignored in Docker) Install TensorRT. Remember the installation path of [TensorRT](https://developer.nvidia.com/tensorrt).
+* (Ignored in Docker) Install TensorRT 8.x (versions >=10.x are not compatible). Remember the installation path of [TensorRT](https://developer.nvidia.com/tensorrt).
 * (Ignored in Docker) Install the grid_sample TensorRT plugin, as the model uses grid sample that requires 5D input, which is not supported by the native grid_sample operator.
   * `git clone https://github.com/SeanWangJS/grid-sample3d-trt-plugin`
   * Modify line 30 in `CMakeLists.txt` to: `set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_ARCHITECTURES "60;70;75;80;86")`
