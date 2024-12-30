@@ -68,7 +68,7 @@ class JoyVASAAudio2MotionPipeline:
         with open(motion_template_path, 'rb') as fin:
             self.templete_dict = pickle.load(fin)
 
-    @torch.inference_mode
+    @torch.inference_mode()
     def gen_motion_sequence(self, audio_path, **kwargs):
         # preprocess audio
         audio, sample_rate = torchaudio.load(audio_path)
