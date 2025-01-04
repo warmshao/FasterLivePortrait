@@ -26,7 +26,7 @@ parser.add_argument('--use_mp', action='store_true', help='use mediapipe or not'
 parser.add_argument(
     "--host_ip", type=str, default="127.0.0.1", help="host ip"
 )
-parser.add_argument("--port", type=int, default=7890, help="server port")
+parser.add_argument("--port", type=int, default=9870, help="server port")
 args, unknown = parser.parse_known_args()
 
 if args.mode == "onnx":

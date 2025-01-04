@@ -50,8 +50,8 @@
     - Download [CUDA 12.2](https://developer.nvidia.com/cuda-12-2-0-download-archive?target_os=Windows&target_arch=x86_64), double-click the exe and install following the default settings step by step.
     - Download the [cuDNN](https://developer.nvidia.com/downloads/compute/cudnn/secure/8.9.7/local_installers/12.x/cudnn-windows-x86_64-8.9.7.29_cuda12-archive.zip) zip file, extract it, and copy the lib, bin, and include folders from the cuDNN folder to the CUDA 12.2 folder (default is C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2)
   - Download the installation-free [Windows integration package](https://github.com/warmshao/FasterLivePortrait/releases) from the release page and extract it.
-  - Enter `FasterLivePortrait-windows` and double-click `all_onnx2trt.bat` to convert onnx files, which will take some time.
-  - For web demo: Double-click `app.bat`, open the webpage: `http://localhost:9870/`
+  - Enter `FasterLivePortrait-windows` and double-click `scripts/all_onnx2trt.bat` to convert onnx files, which will take some time.
+  - For web demo: Double-click `webui.bat`, open the webpage: `http://localhost:9870/`
   - For real-time camera operation, double-click `camera.bat`，press `q` to stop. If you want to change the target image, run in command line: `camera.bat assets/examples/source/s9.jpg`
 - [x] **2024/07/18:** macOS support added(No need for Docker, Python is enough). M1/M2 chips are faster, but it's still quite slow 😟
   - Install ffmpeg: `brew install ffmpeg`
