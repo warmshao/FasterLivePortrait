@@ -47,8 +47,8 @@
     - 下载[cuda12.2](https://developer.nvidia.com/cuda-12-2-0-download-archive?target_os=Windows&target_arch=x86_64), 双击exe后按照默认设置一步步安装即可。
     - 下载[cudnn](https://developer.nvidia.com/downloads/compute/cudnn/secure/8.9.7/local_installers/12.x/cudnn-windows-x86_64-8.9.7.29_cuda12-archive.zip) 压缩包，解压后将cudnn 文件夹下的lib、bin、include 文件夹复制到 CUDA12.2 文件夹下（默认为C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2）
   - 从release页下载免安装[windows 整合包](https://github.com/warmshao/FasterLivePortrait/releases)并解压。
-  - 进入`FasterLivePortrait-windows`后双击`all_onnx2trt.bat`对onnx文件进行转换，这会等上一段时间。
-  - 网页端demo：双击`app.bat`, 打开网页：`http://localhost:9870/`
+  - 进入`FasterLivePortrait-windows`后双击`scripts/all_onnx2trt.bat`对onnx文件进行转换，这会等上一段时间。
+  - 网页端demo：双击`webui.bat`, 打开网页：`http://localhost:9870/`
   - 摄像头实时运行，双击`camera.bat`，按`q`停止。如果你想更换目标图像，命令行运行:`camera.bat assets/examples/source/s9.jpg`。
 - [x] **2024/07/18:** MacOS支持(不需要Docker，python就可以了），M1/M2的速度比较快，但还是很慢😟
   - 安装ffmpeg: `brew install ffmpeg`
