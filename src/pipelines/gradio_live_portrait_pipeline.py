@@ -10,6 +10,7 @@ import cv2
 import datetime
 import os
 import time
+import torchaudio
 from tqdm import tqdm
 import subprocess
 import pickle
@@ -35,6 +36,7 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
     def __init__(self, cfg, **kwargs):
         super(GradioLivePortraitPipeline, self).__init__(cfg, **kwargs)
         self.joyvasa_pipe = None
+        self.kokoro_model = None
 
     def execute_video(
             self,
@@ -44,6 +46,7 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             input_driving_image_path=None,
             input_driving_pickle_path=None,
             input_driving_audio_path=None,
+            input_driving_text=None,
             flag_relative_input=True,
             flag_do_crop_input=True,
             flag_remap_input=True,
@@ -62,7 +65,8 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             driving_smooth_observation_variance=1e-7,
             tab_selection=None,
             v_tab_selection=None,
-            cfg_scale=4.0
+            cfg_scale=4.0,
+            voice_name='af',
     ):
         """ for video driven potrait animation
         """
@@ -77,6 +81,8 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             input_driving_path = str(input_driving_pickle_path)
         elif v_tab_selection == 'Audio':
             input_driving_path = str(input_driving_audio_path)
+        elif v_tab_selection == 'Text':
+            input_driving_path = input_driving_text
         else:
             input_driving_path = str(input_driving_video_path)
 
@@ -127,6 +133,15 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
                 video_path, video_path_concat, total_time = self.run_audio_driving(input_driving_path,
                                                                                    input_source_path,
                                                                                    update_ret=update_ret)
+                gr.Info(f"Run successfully! Cost: {total_time} seconds!", duration=3)
+                return gr.update(visible=True), video_path, gr.update(visible=True), video_path_concat, gr.update(
+                    visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
+            elif v_tab_selection == 'Text':
+                # Text driven animation
+                video_path, video_path_concat, total_time = self.run_text_driving(input_driving_path,
+                                                                                  voice_name,
+                                                                                  input_source_path,
+                                                                                  update_ret=update_ret)
                 gr.Info(f"Run successfully! Cost: {total_time} seconds!", duration=3)
                 return gr.update(visible=True), video_path, gr.update(visible=True), video_path_concat, gr.update(
                     visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
@@ -361,7 +376,7 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
             ret = self.prepare_source(source_path)
             if not ret:
                 raise gr.Error(f"Error in processing source:{source_path} 💥!", duration=5)
-        save_dir = f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}"
+        save_dir = kwargs.get("save_dir", f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}")
         os.makedirs(save_dir, exist_ok=True)
 
         if self.joyvasa_pipe is None:
@@ -404,6 +419,33 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
              vsave_org_path_new, "-y"])
 
         return vsave_org_path_new, vsave_crop_path_new, time.time() - t00
+
+    def run_text_driving(self, driving_text, voice_name, source_path, **kwargs):
+        if self.source_path != source_path or kwargs.get("update_ret", False):
+            # 如果不一样要重新初始化变量
+            self.init_vars(**kwargs)
+            ret = self.prepare_source(source_path)
+            if not ret:
+                raise gr.Error(f"Error in processing source:{source_path} 💥!", duration=5)
+        save_dir = kwargs.get("save_dir", f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}")
+        os.makedirs(save_dir, exist_ok=True)
+        # TODO: make it better
+        os.environ["PHONEMIZER_ESPEAK_LIBRARY"] = r"C:\Program Files\eSpeak NG\libespeak-ng.dll"
+        os.environ["PHONEMIZER_ESPEAK_PATH"] = r"C:\Program Files\eSpeak NG\espeak-ng.exe"
+        from src.models.kokoro.models import build_model
+        from src.models.kokoro.kokoro import generate
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        if self.kokoro_model is None:
+            self.kokoro_model = build_model('checkpoints/Kokoro-82M/kokoro-v0_19.pth', device)
+        VOICEPACK = torch.load(f'checkpoints/Kokoro-82M/voices/{voice_name}.pt', weights_only=True).to(device)
+        audio, out_ps = generate(self.kokoro_model, driving_text, VOICEPACK, lang=voice_name[0])
+        audio_save_path = os.path.join(save_dir, "kokoro-82m-tts.wav")
+        torchaudio.save(audio_save_path, audio[0], 24000)
+        print("save audio to:", audio_save_path)
+        vsave_org_path, vsave_crop_path, total_time = self.run_audio_driving(audio_save_path, source_path,
+                                                                             save_dir=save_dir)
+
+        return vsave_org_path, vsave_crop_path, total_time
 
     def execute_image(self, input_eye_ratio: float, input_lip_ratio: float, input_image, flag_do_crop=True):
         """ for single image retargeting

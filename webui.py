@@ -169,7 +169,7 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
                             cache_examples=False,
                         )
 
-                with gr.TabItem("📁 Driving Audio") as v_tab_audio:
+                with gr.TabItem("🎵 Driving Audio") as v_tab_audio:
                     with gr.Accordion(open=True, label="Driving Audio"):
                         driving_audio_input = gr.Audio(
                             value=None,
@@ -188,11 +188,24 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
                             cache_examples=False,
                         )
 
+                with gr.TabItem("📄Driving Text") as v_tab_text:
+                    with gr.Accordion(open=True, label="Driving Text"):
+                        driving_text_input = gr.Textbox(value="Hi, I am created by Faster LivePortrait!",
+                                                        label="Driving Text")
+                        voice_name = gr.Dropdown(
+                            choices=[
+                                'af',  # Default voice is a 50-50 mix of Bella & Sarah
+                                'af_bella', 'af_sarah', 'am_adam', 'am_michael',
+                                'bf_emma', 'bf_isabella', 'bm_george', 'bm_lewis',
+                                'af_nicole', 'af_sky',
+                            ], value='af', label="Voice Name")
+
                 v_tab_selection = gr.Textbox(value="Video", visible=False)
                 v_tab_video.select(lambda: "Video", None, v_tab_selection)
                 v_tab_image.select(lambda: "Image", None, v_tab_selection)
                 v_tab_pickle.select(lambda: "Pickle", None, v_tab_selection)
                 v_tab_audio.select(lambda: "Audio", None, v_tab_selection)
+                v_tab_text.select(lambda: "Text", None, v_tab_selection)
 
             # with gr.Accordion(open=False, label="Animation Instructions"):
             # gr.Markdown(load_description("assets/gradio/gradio_description_animation.md"))
@@ -209,7 +222,7 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
     with gr.Row():
         with gr.Accordion(open=True, label="Animation Options"):
             with gr.Row():
-                flag_relative_input = gr.Checkbox(value=True, label="relative motion")
+                flag_relative_input = gr.Checkbox(value=False, label="relative motion")
                 flag_stitching = gr.Checkbox(value=True, label="stitching")
                 driving_multiplier = gr.Number(value=1.0, label="driving multiplier", minimum=0.0, maximum=2.0,
                                                step=0.02)
@@ -304,6 +317,7 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
             driving_image_input,
             driving_pickle_input,
             driving_audio_input,
+            driving_text_input,
             flag_relative_input,
             flag_do_crop_input,
             flag_remap_input,
@@ -322,7 +336,8 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
             driving_smooth_observation_variance,
             tab_selection,
             v_tab_selection,
-            cfg_scale
+            cfg_scale,
+            voice_name
         ],
         outputs=[output_video_i2v, output_video_i2v, output_video_concat_i2v, output_video_concat_i2v,
                  output_image_i2i, output_image_i2i, output_image_concat_i2i, output_image_concat_i2i],

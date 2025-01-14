@@ -79,8 +79,9 @@ class JoyVASAAudio2MotionPipeline:
                 new_freq=16000,
             )
         audio = audio.mean(0).to(self.device, dtype=self.dtype)
-        audio_mean, audio_std = torch.mean(audio), torch.std(audio)
-        audio = (audio - audio_mean) / (audio_std + 1e-5)
+        audio = F.pad(audio, (1280, 640), "constant", 0)
+        # audio_mean, audio_std = torch.mean(audio), torch.std(audio)
+        # audio = (audio - audio_mean) / (audio_std + 1e-5)
 
         # crop audio into n_subdivision according to n_motions
         clip_len = int(len(audio) / 16000 * self.fps)
