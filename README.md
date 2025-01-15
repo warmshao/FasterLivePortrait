@@ -15,15 +15,15 @@
 
 <video src="https://github.com/user-attachments/assets/04e962e2-6c57-4d01-ae4a-2f6d2d501c5a" controls="controls" width="500" height="300">Your browser does not support this video!</video>
 
-*. Audio-driven video (real-time):
+* Audio-driven video (real-time):
 
 <video src="https://github.com/user-attachments/assets/98bb5ff7-0796-42db-9d7b-e04ddd2c3c14" controls="controls" width="500" height="300">Your browser does not support this video!</video>
 
-*. Animal-driven:
+* Animal-driven:
 
 <video src="https://github.com/user-attachments/assets/dada0a92-593a-480b-a034-cbcce16e38b9" controls="controls" width="500" height="300">Your browser does not support this video!</video>
 
-*. Multiple faces driven simultaneously:
+* Multiple faces driven simultaneously:
 
 <video src="https://github.com/KwaiVGI/LivePortrait/assets/138360003/b37de35d-6feb-4100-b73f-58ac23121483" controls="controls" width="500" height="300">Your browser does not support this video!</video>
 
