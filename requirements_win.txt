@@ -10,3 +10,5 @@ huggingface_hub[cli]
 mediapipe
 torchgeometry
 soundfile
+munch
+phonemizer

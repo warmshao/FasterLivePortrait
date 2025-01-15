@@ -386,6 +386,35 @@ def test_mediapipe_face():
             cv2.imwrite('./results/mediapipe_test/' + os.path.basename(file), annotated_image)
 
 
+def test_kokoro_model():
+    import os
+    os.environ["PHONEMIZER_ESPEAK_LIBRARY"] = r"C:\Program Files\eSpeak NG\libespeak-ng.dll"
+    os.environ["PHONEMIZER_ESPEAK_PATH"] = r"C:\Program Files\eSpeak NG\espeak-ng.exe"
+    import torchaudio
+
+    from src.models.kokoro.models import build_model
+    from src.models.kokoro.kokoro import generate
+    import torch
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    MODEL = build_model('checkpoints/Kokoro-82M/kokoro-v0_19.pth', device)
+    VOICE_NAME = [
+        'af',  # Default voice is a 50-50 mix of Bella & Sarah
+        'af_bella', 'af_sarah', 'am_adam', 'am_michael',
+        'bf_emma', 'bf_isabella', 'bm_george', 'bm_lewis',
+        'af_nicole', 'af_sky',
+    ][0]
+    VOICEPACK = torch.load(f'checkpoints/Kokoro-82M/voices/{VOICE_NAME}.pt', weights_only=True).to(device)
+    print(f'Loaded voice: {VOICE_NAME}')
+
+    text = "How could I know? It's an unanswerable question. Like asking an unborn child if they'll lead a good life. They haven't even been born."
+    audio, out_ps = generate(MODEL, text, VOICEPACK, lang=VOICE_NAME[0])
+    audio_save_path = "./results/kokoro-82m/kokoro_test.wav"
+    os.makedirs(os.path.dirname(audio_save_path), exist_ok=True)
+    torchaudio.save(audio_save_path, audio[0], 24000)
+    print(f"audio save to {audio_save_path}")
+
+
 if __name__ == '__main__':
     # test_warping_spade_model()
     # test_motion_extractor_model()
@@ -393,4 +422,5 @@ if __name__ == '__main__':
     # test_face_analysis_model()
     # test_appearance_extractor_model()
     # test_stitching_model()
-    test_mediapipe_face()
+    # test_mediapipe_face()
+    test_kokoro_model()
