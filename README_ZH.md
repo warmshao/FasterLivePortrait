@@ -11,6 +11,9 @@
 **如果你觉得这个项目有用，帮我点个star吧✨✨**
 
 ### Demo(还有很多功能等你探索)
+* 文本驱动视频，基于kokoro-82M:
+
+<video src="https://github.com/user-attachments/assets/04e962e2-6c57-4d01-ae4a-2f6d2d501c5a" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
 * 声音驱动视频(可以实时):
 
 <video src="https://github.com/user-attachments/assets/98bb5ff7-0796-42db-9d7b-e04ddd2c3c14" controls="controls" width="500" height="300">您的浏览器不支持播放该视频！</video>
@@ -24,6 +27,9 @@
 
 ### 环境安装
 * 方式1：如果你是Windows用户，推荐可以直接下载[整合包](https://github.com/warmshao/FasterLivePortrait/releases/tag/v1.8)。
+  * 需要先安装好[git](https://git-scm.com/downloads), 双击`update.bat`更新代码。
+  * 双击`scripts/all_onnx2trt.bat`转换onnx文件为tensorrt文件。
+  * 双击`webui.bat`打开网页，或者双击`camera.bat`打开摄像头实时运行。
 * 方式2：Docker，提供了一个镜像，不用再自己安装onnxruntime-gpu和TensorRT。
   * 根据自己的系统安装[docker](https://docs.docker.com/desktop/install/windows-install/)
   * 下载镜像：`docker pull shaoguo/faster_liveportrait:v3`

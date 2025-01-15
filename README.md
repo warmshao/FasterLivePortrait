@@ -11,20 +11,27 @@
 **If you find this project useful, please give it a star ✨✨**
 
 ### Demo (Explore more features)
-1. Audio-driven video (real-time):
+* Text-driven video, based on kokoro-82M:
+
+<video src="https://github.com/user-attachments/assets/04e962e2-6c57-4d01-ae4a-2f6d2d501c5a" controls="controls" width="500" height="300">Your browser does not support this video!</video>
+
+*. Audio-driven video (real-time):
 
 <video src="https://github.com/user-attachments/assets/98bb5ff7-0796-42db-9d7b-e04ddd2c3c14" controls="controls" width="500" height="300">Your browser does not support this video!</video>
 
-2. Animal-driven:
+*. Animal-driven:
 
 <video src="https://github.com/user-attachments/assets/dada0a92-593a-480b-a034-cbcce16e38b9" controls="controls" width="500" height="300">Your browser does not support this video!</video>
 
-3. Multiple faces driven simultaneously:
+*. Multiple faces driven simultaneously:
 
 <video src="https://github.com/KwaiVGI/LivePortrait/assets/138360003/b37de35d-6feb-4100-b73f-58ac23121483" controls="controls" width="500" height="300">Your browser does not support this video!</video>
 
 ### Environment Setup
 * Option 1 (recommended): If you are a Windows user, you can directly download the [integrated package](https://github.com/warmshao/FasterLivePortrait/releases/tag/v1.8).
+    * You need to install [git](https://git-scm.com/downloads) first, then double-click `update.bat` to update the code.
+    * Double-click `scripts/all_onnx2trt.bat` to convert onnx files to tensorrt files.
+    * Double-click `webui.bat` to open the webpage, or double-click `camera.bat` to open the camera for real-time operation.
 * Option 2: Docker.A docker image is provided for  eliminating the need to install onnxruntime-gpu and TensorRT manually.
   * Install [Docker](https://docs.docker.com/desktop/install/windows-install/) according to your system
   * Download the image: `docker pull shaoguo/faster_liveportrait:v3`
