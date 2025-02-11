@@ -27,6 +27,6 @@ echo use animal: [!animal_param!]
 echo paste_back: [!paste_back!]
 
 REM 执行Python命令
-.\venv\python.exe .\run.py --cfg configs/trt_infer.yaml --realtime --dri_video 0 --src_image !src_image! !animal_param! !paste_back!
+.\venv\python.exe .\run.py --cfg configs/trt_infer.yaml --realtime --dri_webcam 0 --src_image !src_image! !animal_param! !paste_back!
 
 endlocal
