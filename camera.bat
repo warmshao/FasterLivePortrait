@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 REM 设置默认源图像路径
-set "default_src_image=assets\examples\source\s12.jpg"
+set "default_src_image=Medusa\redtopG.png"
 set "src_image=%default_src_image%"
 set "animal_param="
 set "paste_back="
@@ -27,6 +27,6 @@ echo use animal: [!animal_param!]
 echo paste_back: [!paste_back!]
 
 REM 执行Python命令
-.\venv\python.exe .\run.py --cfg configs/trt_infer.yaml --realtime --dri_webcam 0 --src_image !src_image! !animal_param! !paste_back!
+.\venv\python.exe .\run.py --cfg configs/trt_infer.yaml --realtime --dri_webcam 0 --src_webcam -1 --src_image !src_image! !animal_param! !paste_back!
 
 endlocal
