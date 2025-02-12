@@ -3,6 +3,7 @@
 """
 The entrance of the gradio
 """
+import os
 import pdb
 
 import gradio as gr
@@ -192,13 +193,10 @@ with gr.Blocks(theme=gr.themes.Soft(font=[gr.themes.GoogleFont("Plus Jakarta San
                     with gr.Accordion(open=True, label="Driving Text"):
                         driving_text_input = gr.Textbox(value="Hi, I am created by Faster LivePortrait!",
                                                         label="Driving Text")
+                        voice_dir = "checkpoints/Kokoro-82M/voices/"
+                        voice_names = [os.path.splitext(vname)[0] for vname in os.listdir(voice_dir) if vname.endswith(".pt")]
                         voice_name = gr.Dropdown(
-                            choices=[
-                                'af',  # Default voice is a 50-50 mix of Bella & Sarah
-                                'af_bella', 'af_sarah', 'am_adam', 'am_michael',
-                                'bf_emma', 'bf_isabella', 'bm_george', 'bm_lewis',
-                                'af_nicole', 'af_sky',
-                            ], value='af', label="Voice Name")
+                            choices=voice_names, value='af_heart', label="Voice Name")
 
                 v_tab_selection = gr.Textbox(value="Video", visible=False)
                 v_tab_video.select(lambda: "Video", None, v_tab_selection)

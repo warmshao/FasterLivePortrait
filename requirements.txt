@@ -13,3 +13,6 @@ torchgeometry
 soundfile
 munch
 phonemizer
+kokoro>=0.3.4
+misaki[ja]
+misaki[zh]
