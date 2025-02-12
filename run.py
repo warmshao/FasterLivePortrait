@@ -47,7 +47,7 @@ else:
 def run_with_video(args):
     infer_cfg = OmegaConf.load(args.cfg)
     infer_cfg.infer_params.flag_pasteback = args.paste_back
-    if int(args.src_webcam)>0:
+    if int(args.src_webcam)>-1:
         sourceisWebcam = True
     else:
         sourceisWebcam = False
