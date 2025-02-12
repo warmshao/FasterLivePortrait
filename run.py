@@ -47,7 +47,7 @@ else:
 def run_with_video(args):
     infer_cfg = OmegaConf.load(args.cfg)
     infer_cfg.infer_params.flag_pasteback = args.paste_back
-    if int(args.src_webcam)>-1:
+    if int(args.src_webcam)>0:
         sourceisWebcam = True
     else:
         sourceisWebcam = False
@@ -116,14 +116,60 @@ def run_with_video(args):
         else:
             if infer_cfg.infer_params.flag_pasteback:
                 out_org = cv2.cvtColor(out_org, cv2.COLOR_RGB2BGR)
-                cv2.imshow('Render',out_org)
+                cv2.imshow('Render,  Q > exit,  S > Stitching,  Z > RelativeMotion,  X > AnimationRegion,  C > CropDrivingVideo,  Space > Webcamassource,  R > SwitchRealtimeWebcamUpdate',out_org)
             else:
                 # image show in realtime mode
-                cv2.imshow('Render,  Q > exit,  Space > Webcam as source,  R > Switch Realtime Webcam Update', out_crop)
+                cv2.imshow('Render,  Q > exit,  S > Stitching,  Z > RelativeMotion,  X > AnimationRegion,  C > CropDrivingVideo,  Space > Webcamassource,  R > SwitchRealtimeWebcamUpdate', out_crop)
             # Press the 'q' key to exit the loop, r to switch realtime src_webcam update, spacebar to switch sourceisWebcam
             k = cv2.waitKey(1) & 0xFF
             if k == ord('q'):
                 break
+            # Key for Interesting Params    
+            if k == ord('s'):
+                infer_cfg.infer_params.flag_stitching = not infer_cfg.infer_params.flag_stitching
+                print('flag_stitching:'+str(infer_cfg.infer_params.flag_stitching))
+            if k == ord('z'):
+                infer_cfg.infer_params.flag_relative_motion = not infer_cfg.infer_params.flag_relative_motion
+                print('flag_relative_motion:'+str(infer_cfg.infer_params.flag_relative_motion))                
+            if k == ord('x'):
+                if infer_cfg.infer_params.animation_region == "all": infer_cfg.infer_params.animation_region = "exp", print('animation_region = "exp"')
+                else:infer_cfg.infer_params.animation_region = "all", print('animation_region = "all"')
+            if k == ord('c'):
+                infer_cfg.infer_params.flag_crop_driving_video = not infer_cfg.infer_params.flag_crop_driving_video
+                print('flag_crop_driving_video:'+str(infer_cfg.infer_params.flag_crop_driving_video))  
+            if k == ord('v'):
+                infer_cfg.infer_params.flag_pasteback = not infer_cfg.infer_params.flag_pasteback
+                print('flag_pasteback:'+str(infer_cfg.infer_params.flag_pasteback)) 
+                
+            if k == ord('a'):
+                infer_cfg.infer_params.flag_normalize_lip = not infer_cfg.infer_params.flag_normalize_lip
+                print('flag_normalize_lip:'+str(infer_cfg.infer_params.flag_normalize_lip))  
+            if k == ord('d'):
+                infer_cfg.infer_params.flag_source_video_eye_retargeting = not infer_cfg.infer_params.flag_source_video_eye_retargeting
+                print('flag_source_video_eye_retargeting:'+str(infer_cfg.infer_params.flag_source_video_eye_retargeting))  
+            if k == ord('f'):
+                infer_cfg.infer_params.flag_video_editing_head_rotation = not infer_cfg.infer_params.flag_video_editing_head_rotation
+                print('flag_video_editing_head_rotation:'+str(infer_cfg.infer_params.flag_video_editing_head_rotation))                 
+            if k == ord('g'):
+                infer_cfg.infer_params.flag_eye_retargeting = not infer_cfg.infer_params.flag_eye_retargeting
+                print('flag_eye_retargeting:'+str(infer_cfg.infer_params.flag_eye_retargeting)) 
+                
+            if k == ord('k'):
+                infer_cfg.crop_params.src_scale -= 0.1
+                ret = pipe.prepare_source(args.src_image, realtime=args.realtime)
+                print('src_scale:'+str(infer_cfg.crop_params.src_scale))                
+            if k == ord('l'):
+                infer_cfg.crop_params.src_scale += 0.1
+                ret = pipe.prepare_source(args.src_image, realtime=args.realtime)
+                print('src_scale:'+str(infer_cfg.crop_params.src_scale))  
+            if k == ord('n'):
+                infer_cfg.crop_params.dri_scale -= 0.1
+                print('dri_scale:'+str(infer_cfg.crop_params.dri_scale))                
+            if k == ord('m'):
+                infer_cfg.crop_params.dri_scale += 0.1
+                print('dri_scale:'+str(infer_cfg.crop_params.dri_scale))  
+                
+                #pipe.update_cfg(infer_cfg)
             elif k == ord('r'):
                 src_webcam_updateRealtime = not src_webcam_updateRealtime
                 print('Switching realtime update of source webcam ')
