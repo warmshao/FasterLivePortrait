@@ -51,7 +51,7 @@ def run_with_video(args):
         sourceisWebcam = True
     else:
         sourceisWebcam = False
-    src_webcam_updateRealtime = True      
+    src_webcam_updateRealtime = False      
     src_webcam_updatetimer = 0   
     pipe = FasterLivePortraitPipeline(cfg=infer_cfg, is_animal=args.animal)
     ret = pipe.prepare_source(args.src_image, realtime=args.realtime)
