@@ -109,6 +109,12 @@
 
 **Changelog**
 - [x] **2024/12/22:** Add API Deployment `python api.py`, For more information, please refer to the [tutorial](assets/docs/API.md).
+- [x] **2024/12/21:** Added support for [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), enabling text-driven video or image generation.
+  - Updated code: `git pull origin master` and install the latest Python dependencies `pip install requirements.txt`, or simply double-click `update.bat` on Windows.
+  - Download the model: `huggingface-cli download hexgrad/Kokoro-82M --local-dir .\checkpoints\Kokoro-82M`.
+  - For Linux, install `espeak-ng`: `apt-get -qq -y install espeak-ng > /dev/null 2>&1`
+  - For Windows, refer to [manual installation instructions](https://huggingface.co/hexgrad/Kokoro-82M/discussions/12) and configure the `espeak-ng` environment variables.  The current read location is [here](src/pipelines/gradio_live_portrait_pipeline.py:437); modify it if your installation path differs.
+  -  Now you can use it normally in the "Drive Text" tab.
 - [x] **2024/12/16:** Added support for [JoyVASA](https://github.com/jdh-algo/JoyVASA), which can drive videos or images with audio. Very cool!
  - Update code, then download the models: `huggingface-cli download TencentGameMate/chinese-hubert-base --local-dir .\checkpoints\chinese-hubert-base` and `huggingface-cli download jdh-algo/JoyVASA --local-dir ./checkpoints/JoyVASA`
  - After launching the webui, follow the tutorial below. When the source is a video, it's recommended to only drive the mouth movements

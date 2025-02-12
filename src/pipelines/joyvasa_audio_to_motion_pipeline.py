@@ -79,7 +79,7 @@ class JoyVASAAudio2MotionPipeline:
                 new_freq=16000,
             )
         audio = audio.mean(0).to(self.device, dtype=self.dtype)
-        audio = F.pad(audio, (1280, 640), "constant", 0)
+        # audio = F.pad(audio, (1280, 640), "constant", 0)
         # audio_mean, audio_std = torch.mean(audio), torch.std(audio)
         # audio = (audio - audio_mean) / (audio_std + 1e-5)
 

@@ -35,27 +35,27 @@ animal_models:
   warping_spade:
     name: "WarpingSpadeModel"
     predict_type: "trt"
-    model_path: "./checkpoints/liveportrait_animal_onnx/warping_spade-fix.trt"
+    model_path: "./checkpoints/liveportrait_animal_onnx/warping_spade-fix-v1.1.trt"
   motion_extractor:
     name: "MotionExtractorModel"
     predict_type: "trt"
-    model_path: "./checkpoints/liveportrait_animal_onnx/motion_extractor.trt"
+    model_path: "./checkpoints/liveportrait_animal_onnx/motion_extractor-v1.1.trt"
   app_feat_extractor:
     name: "AppearanceFeatureExtractorModel"
     predict_type: "trt"
-    model_path: "./checkpoints/liveportrait_animal_onnx/appearance_feature_extractor.trt"
+    model_path: "./checkpoints/liveportrait_animal_onnx/appearance_feature_extractor-v1.1.trt"
   stitching:
     name: "StitchingModel"
     predict_type: "trt"
-    model_path: "./checkpoints/liveportrait_animal_onnx/stitching.trt"
+    model_path: "./checkpoints/liveportrait_animal_onnx/stitching-v1.1.trt"
   stitching_eye_retarget:
     name: "StitchingModel"
     predict_type: "trt"
-    model_path: "./checkpoints/liveportrait_animal_onnx/stitching_eye.trt"
+    model_path: "./checkpoints/liveportrait_animal_onnx/stitching_eye-v1.1.trt"
   stitching_lip_retarget:
     name: "StitchingModel"
     predict_type: "trt"
-    model_path: "./checkpoints/liveportrait_animal_onnx/stitching_lip.trt"
+    model_path: "./checkpoints/liveportrait_animal_onnx/stitching_lip-v1.1.trt"
   landmark:
     name: "LandmarkModel"
     predict_type: "trt"

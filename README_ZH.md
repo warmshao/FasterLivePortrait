@@ -109,6 +109,12 @@
 
 **日志**
 - [x] **2024/12/22:** 增加api部署`python api.py`, 其他参考[教程](assets/docs/API_ZH.md)使用。
+- [x] **2024/12/21:** 增加[Kokoro-82M](hhttps://huggingface.co/hexgrad/Kokoro-82M)的支持，可以用文本驱动视频或图片。
+  - 更新代码, `git pull origin master`并安装最新的python依赖 `pip install requirements.txt`， 或者 windows下直接双击 `update.bat`. 
+  - 然后下载模型: `huggingface-cli download hexgrad/Kokoro-82M --local-dir .\checkpoints\Kokoro-82M`. 
+  - 如果是Linux请安装`apt-get -qq -y install espeak-ng > /dev/null 2>&1`
+  - 如果是windows请参考[自行安装](https://huggingface.co/hexgrad/Kokoro-82M/discussions/12)并配置好`espeak-ng`环境变量。我是在[这里](src/pipelines/gradio_live_portrait_pipeline.py:437)读取，如果你的位置变了，请自行修改。
+  - 然后就可以在Drive Text的标签页正常使用了。
 - [x] **2024/12/16:** 增加[JoyVASA](https://github.com/jdh-algo/JoyVASA)的支持，可以用音频驱动视频或图片。非常酷！
   - 更新代码，然后下载模型: `huggingface-cli download TencentGameMate/chinese-hubert-base --local-dir .\checkpoints\chinese-hubert-base` 和 ` huggingface-cli download jdh-algo/JoyVASA --local-dir ./checkpoints/JoyVASA`
   - 启动webui后根据以下教程使用即可，建议source 是视频的情况下只驱动嘴部

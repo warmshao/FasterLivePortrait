@@ -430,17 +430,33 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
         save_dir = kwargs.get("save_dir", f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}")
         os.makedirs(save_dir, exist_ok=True)
         # TODO: make it better
-        os.environ["PHONEMIZER_ESPEAK_LIBRARY"] = r"C:\Program Files\eSpeak NG\libespeak-ng.dll"
-        os.environ["PHONEMIZER_ESPEAK_PATH"] = r"C:\Program Files\eSpeak NG\espeak-ng.exe"
-        from src.models.kokoro.models import build_model
-        from src.models.kokoro.kokoro import generate
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        if self.kokoro_model is None:
-            self.kokoro_model = build_model('checkpoints/Kokoro-82M/kokoro-v0_19.pth', device)
-        VOICEPACK = torch.load(f'checkpoints/Kokoro-82M/voices/{voice_name}.pt', weights_only=True).to(device)
-        audio, out_ps = generate(self.kokoro_model, driving_text, VOICEPACK, lang=voice_name[0])
-        audio_save_path = os.path.join(save_dir, "kokoro-82m-tts.wav")
-        torchaudio.save(audio_save_path, audio[0], 24000)
+        import platform
+        if platform.system() == "Windows":
+            # refer: https://huggingface.co/hexgrad/Kokoro-82M/discussions/12
+            # if you install in different path, remember to change below envs
+            os.environ["PHONEMIZER_ESPEAK_LIBRARY"] = r"C:\Program Files\eSpeak NG\libespeak-ng.dll"
+            os.environ["PHONEMIZER_ESPEAK_PATH"] = r"C:\Program Files\eSpeak NG\espeak-ng.exe"
+        from kokoro import KPipeline, KModel
+        import soundfile as sf
+        import json
+        with open("checkpoints/Kokoro-82M/config.json", "r", encoding="utf-8") as fin:
+            model_config = json.load(fin)
+        model = KModel(config=model_config, model="checkpoints/Kokoro-82M/kokoro-v1_0.pth")
+        pipeline = KPipeline(lang_code=voice_name[0], model=model)  # <= make sure lang_code matches voice
+        model.voices = {}
+        voice_path = "checkpoints/Kokoro-82M/voices"
+        for vname in os.listdir(voice_path):
+            pipeline.voices[os.path.splitext(vname)[0]] = torch.load(os.path.join(voice_path, vname), weights_only=True)
+        generator = pipeline(
+            driving_text, voice=voice_name,  # <= change voice here
+            speed=1, split_pattern=r'\n+'
+        )
+        audios = []
+        for i, (gs, ps, audio) in enumerate(generator):
+            audios.append(audio)
+        audios = np.concatenate(audios)
+        audio_save_path = os.path.join(save_dir, f"kokoro-82m-{voice_name}.wav")
+        sf.write(audio_save_path, audios, 24000)
         print("save audio to:", audio_save_path)
         vsave_org_path, vsave_crop_path, total_time = self.run_audio_driving(audio_save_path, source_path,
                                                                              save_dir=save_dir)
