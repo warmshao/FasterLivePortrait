@@ -62,7 +62,7 @@ def run_with_video(args):
         exit(1)
     if not args.dri_video or not os.path.exists(args.dri_video):
         # read frame from camera if no driving video input
-        vcap = cv2.VideoCapture(int(args.dri_video))
+        vcap = cv2.VideoCapture(int(args.))
         if not vcap.isOpened():
             print("no camera found! exit!")
             exit(1)
