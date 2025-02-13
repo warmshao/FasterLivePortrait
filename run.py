@@ -8,14 +8,14 @@
 # video
  python run.py \
  --src_image assets/examples/driving/d13.mp4 \
- --dri_webcam assets/examples/driving/d11.mp4 \
+ --dri_video assets/examples/driving/d11.mp4 \
  --cfg configs/trt_infer.yaml \
  --paste_back \
  --animal
 # pkl
  python run.py \
  --src_image assets/examples/source/s12.jpg \
- --dri_webcam ./results/2024-09-13-081710/d0.mp4.pkl \
+ --dri_video ./results/2024-09-13-081710/d0.mp4.pkl \
  --cfg configs/trt_infer.yaml \
  --paste_back \
  --animal
@@ -60,14 +60,14 @@ def run_with_video(args):
     if not ret:
         print(f"no face in {args.src_image}! exit!")
         exit(1)
-    if not args.dri_webcam or not os.path.exists(args.dri_webcam):
+    if not args.dri_video or not os.path.exists(args.dri_video):
         # read frame from camera if no driving video input
-        vcap = cv2.VideoCapture(int(args.dri_webcam))
+        vcap = cv2.VideoCapture(int(args.dri_video))
         if not vcap.isOpened():
             print("no camera found! exit!")
             exit(1)
     else:
-        vcap = cv2.VideoCapture(args.dri_webcam)
+        vcap = cv2.VideoCapture(args.dri_video)
     fps = int(vcap.get(cv2.CAP_PROP_FPS))
     h, w = pipe.src_imgs[0].shape[:2]
     save_dir = f"./results/{datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S')}"
@@ -77,10 +77,10 @@ def run_with_video(args):
     if not args.realtime:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         vsave_crop_path = os.path.join(save_dir,
-                                       f"{os.path.basename(args.src_image)}-{os.path.basename(args.dri_webcam)}-crop.mp4")
+                                       f"{os.path.basename(args.src_image)}-{os.path.basename(args.dri_video)}-crop.mp4")
         vout_crop = cv2.VideoWriter(vsave_crop_path, fourcc, fps, (512 * 2, 512))
         vsave_org_path = os.path.join(save_dir,
-                                      f"{os.path.basename(args.src_image)}-{os.path.basename(args.dri_webcam)}-org.mp4")
+                                      f"{os.path.basename(args.src_image)}-{os.path.basename(args.dri_video)}-org.mp4")
         vout_org = cv2.VideoWriter(vsave_org_path, fourcc, fps, (w, h))
 
     infer_times = []
@@ -200,17 +200,17 @@ def run_with_video(args):
     if not args.realtime:
         vout_crop.release()
         vout_org.release()
-        if video_has_audio(args.dri_webcam):
+        if video_has_audio(args.dri_video):
             vsave_crop_path_new = os.path.splitext(vsave_crop_path)[0] + "-audio.mp4"
             subprocess.call(
-                [FFMPEG, "-i", vsave_crop_path, "-i", args.dri_webcam,
+                [FFMPEG, "-i", vsave_crop_path, "-i", args.dri_video,
                  "-b:v", "10M", "-c:v",
                  "libx264", "-map", "0:v", "-map", "1:a",
                  "-c:a", "aac",
                  "-pix_fmt", "yuv420p", vsave_crop_path_new, "-y", "-shortest"])
             vsave_org_path_new = os.path.splitext(vsave_org_path)[0] + "-audio.mp4"
             subprocess.call(
-                [FFMPEG, "-i", vsave_org_path, "-i", args.dri_webcam,
+                [FFMPEG, "-i", vsave_org_path, "-i", args.dri_video,
                  "-b:v", "10M", "-c:v",
                  "libx264", "-map", "0:v", "-map", "1:a",
                  "-c:a", "aac",
@@ -236,7 +236,7 @@ def run_with_video(args):
         'c_lip_lst': c_lip_lst,
     }
     template_pkl_path = os.path.join(save_dir,
-                                     f"{os.path.basename(args.dri_webcam)}.pkl")
+                                     f"{os.path.basename(args.dri_video)}.pkl")
     with open(template_pkl_path, "wb") as fw:
         pickle.dump(template_dct, fw)
     print(f"save driving motion pkl file at : {template_pkl_path}")
@@ -251,7 +251,7 @@ def run_with_pkl(args):
     if not ret:
         print(f"no face in {args.src_image}! exit!")
         return
-    with open(args.dri_webcam, "rb") as fin:
+    with open(args.dri_video, "rb") as fin:
         dri_motion_infos = pickle.load(fin)
 
     fps = int(dri_motion_infos["output_fps"])
@@ -263,10 +263,10 @@ def run_with_pkl(args):
     if not args.realtime:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         vsave_crop_path = os.path.join(save_dir,
-                                       f"{os.path.basename(args.src_image)}-{os.path.basename(args.dri_webcam)}-crop.mp4")
+                                       f"{os.path.basename(args.src_image)}-{os.path.basename(args.dri_video)}-crop.mp4")
         vout_crop = cv2.VideoWriter(vsave_crop_path, fourcc, fps, (512, 512))
         vsave_org_path = os.path.join(save_dir,
-                                      f"{os.path.basename(args.src_image)}-{os.path.basename(args.dri_webcam)}-org.mp4")
+                                      f"{os.path.basename(args.src_image)}-{os.path.basename(args.dri_video)}-org.mp4")
         vout_org = cv2.VideoWriter(vsave_org_path, fourcc, fps, (w, h))
 
     infer_times = []
@@ -307,17 +307,17 @@ def run_with_pkl(args):
     if not args.realtime:
         vout_crop.release()
         vout_org.release()
-        if video_has_audio(args.dri_webcam):
+        if video_has_audio(args.dri_video):
             vsave_crop_path_new = os.path.splitext(vsave_crop_path)[0] + "-audio.mp4"
             subprocess.call(
-                [FFMPEG, "-i", vsave_crop_path, "-i", args.dri_webcam,
+                [FFMPEG, "-i", vsave_crop_path, "-i", args.dri_video,
                  "-b:v", "10M", "-c:v",
                  "libx264", "-map", "0:v", "-map", "1:a",
                  "-c:a", "aac",
                  "-pix_fmt", "yuv420p", vsave_crop_path_new, "-y", "-shortest"])
             vsave_org_path_new = os.path.splitext(vsave_org_path)[0] + "-audio.mp4"
             subprocess.call(
-                [FFMPEG, "-i", vsave_org_path, "-i", args.dri_webcam,
+                [FFMPEG, "-i", vsave_org_path, "-i", args.dri_video,
                  "-b:v", "10M", "-c:v",
                  "libx264", "-map", "0:v", "-map", "1:a",
                  "-c:a", "aac",
@@ -342,7 +342,7 @@ if __name__ == '__main__':
                         help='source image')
     parser.add_argument('--src_webcam', required=False, type=int, default=-1,
                         help='source webcam')                         
-    parser.add_argument('--dri_webcam', required=False, type=str, default="assets/examples/driving/d14.mp4",
+    parser.add_argument('--dri_video', required=False, type=str, default="assets/examples/driving/d14.mp4",
                         help='driving video')                       
     parser.add_argument('--cfg', required=False, type=str, default="configs/onnx_infer.yaml", help='inference config')
     parser.add_argument('--realtime', action='store_true', help='realtime inference')
@@ -350,7 +350,7 @@ if __name__ == '__main__':
     parser.add_argument('--paste_back', action='store_true', default=False, help='paste back to origin image')
     args, unknown = parser.parse_known_args()
 
-    if args.dri_webcam.endswith(".pkl"):
+    if args.dri_video.endswith(".pkl"):
         run_with_pkl(args)
     else:
         run_with_video(args)
