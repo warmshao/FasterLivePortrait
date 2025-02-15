@@ -109,13 +109,13 @@
 * The default port is 9870. Open the webpage: `http://localhost:9870/`
 
 
-Hotkeys for webcam mode (when render window is on focus)
-Q > exit
-S > Stitching
-Z > RelativeMotion
-X > AnimationRegion
-C > CropDrivingVideo
-K,L > AdjustSourceScale
+Hotkeys for webcam mode (when render window is on focus)\
+Q > exit\
+S > Stitching\
+Z > RelativeMotion\
+X > AnimationRegion\
+C > CropDrivingVideo\
+K,L > AdjustSourceScale\
 N,M > AdjustDriverScale
 
 
