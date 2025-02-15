@@ -27,6 +27,16 @@
 
 <video src="https://github.com/KwaiVGI/LivePortrait/assets/138360003/b37de35d-6feb-4100-b73f-58ac23121483" controls="controls" width="500" height="300">Your browser does not support this video!</video>
 
+Hotkeys (when render videow is on focus)
+Q > exit
+S > Stitching
+Z > RelativeMotion
+X > AnimationRegion
+C > CropDrivingVideo
+K,L > AdjustSourceScale
+N,M > AdjustDriverScale
+
+
 ### Environment Setup
 * Option 1 (recommended): If you are a Windows user, you can directly download the [integrated package](https://github.com/warmshao/FasterLivePortrait/releases/tag/v1.8).
     * You need to install [git](https://git-scm.com/downloads) first, then double-click `update.bat` to update the code.
