@@ -107,6 +107,17 @@
 * tensorrt: `python webui.py --mode trt`
 * 默认端口在9870，打开网页：`http://localhost:9870/`
 
+
+Hotkeys for webcam mode (when render window is on focus)\
+Q > exit\
+S > Stitching\
+Z > RelativeMotion\
+X > AnimationRegion\
+C > CropDrivingVideo\
+K,L > AdjustSourceScale\
+N,M > AdjustDriverScale
+
+
 **日志**
 - [x] **2024/12/22:** 增加api部署`python api.py`, 其他参考[教程](assets/docs/API_ZH.md)使用。
 - [x] **2024/12/21:** 增加[Kokoro-82M](hhttps://huggingface.co/hexgrad/Kokoro-82M)的支持，可以用文本驱动视频或图片。
