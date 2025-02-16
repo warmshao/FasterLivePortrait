@@ -125,25 +125,31 @@ class FasterLivePortraitPipeline:
         return combined_lip_ratio_tensor
 
     def prepare_source(self, source_path, **kwargs):
-        print(f"process source:{source_path} >>>>>>>>")
         try:
-            if utils.is_video(source_path):
-                self.is_source_video = True
-            else:
-                self.is_source_video = False
-
-            if self.is_source_video:
-                src_imgs_bgr = []
-                src_vcap = cv2.VideoCapture(source_path)
-                while True:
-                    ret, frame = src_vcap.read()
-                    if not ret:
-                        break
-                    src_imgs_bgr.append(frame)
+            if 'srcwebcamindex' in kwargs:
+                src_vcap = cv2.VideoCapture(kwargs.get('srcwebcamindex'))
+                _, frame = src_vcap.read()
+                src_imgs_bgr = [frame]
                 src_vcap.release()
             else:
-                img_bgr = cv2.imread(source_path, cv2.IMREAD_COLOR)
-                src_imgs_bgr = [img_bgr]
+                print(f"process source:{source_path} >>>>>>>>")           
+                if utils.is_video(source_path):
+                    self.is_source_video = True
+                else:
+                    self.is_source_video = False
+
+                if self.is_source_video:
+                    src_imgs_bgr = []
+                    src_vcap = cv2.VideoCapture(source_path)
+                    while True:
+                        ret, frame = src_vcap.read()
+                        if not ret:
+                            break
+                        src_imgs_bgr.append(frame)
+                    src_vcap.release()
+                else:
+                    img_bgr = cv2.imread(source_path, cv2.IMREAD_COLOR)
+                    src_imgs_bgr = [img_bgr]
 
             self.src_imgs = []
             self.src_infos = []
@@ -261,7 +267,9 @@ class FasterLivePortraitPipeline:
                     M = torch.from_numpy(crop_info['M_c2o']).to(self.device)
                     src_infos[i].append(M)
                 self.src_infos.append(src_infos[:])
-            print(f"finish process source:{source_path} >>>>>>>>")
+            #to not spam
+            if not 'srcwebcamindex' in kwargs:    
+                print(f"finish process source:{source_path} >>>>>>>>")
             return len(self.src_infos) > 0
         except Exception as e:
             traceback.print_exc()
