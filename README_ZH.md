@@ -107,6 +107,15 @@
 * tensorrt: `python webui.py --mode trt`
 * 默认端口在9870，打开网页：`http://localhost:9870/`
 
+Hotkeys for webcam mode (when render window is on focus)\
+Q > exit\
+S > Stitching\
+Z > RelativeMotion\
+X > AnimationRegion\
+C > CropDrivingVideo\
+K,L > AdjustSourceScale\
+N,M > AdjustDriverScale
+
 ## 许可证
 
 - **代码**: 本项目采用 MIT 许可证 - 详细信息请查看 [LICENSE](LICENSE) 文件。
