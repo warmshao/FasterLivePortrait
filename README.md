@@ -11,6 +11,11 @@
 **If you find this project useful, please give it a star ✨✨**
 
 ### Demo (Explore more features)
+* Anyone want this? Fell free to contact me.
+
+<video src="https://github.com/user-attachments/assets/554c37fc-d098-4938-a638-1660d85d222e" controls="controls" width="500" height="300">Your browser does not support this video!</video>
+
+
 * Text-driven video, based on kokoro-82M:
 
 <video src="https://github.com/user-attachments/assets/04e962e2-6c57-4d01-ae4a-2f6d2d501c5a" controls="controls" width="500" height="300">Your browser does not support this video!</video>
@@ -103,11 +108,11 @@
      --cfg configs/onnx_infer.yaml
      ```
 
+
 ### Gradio WebUI
 * onnxruntime: `python webui.py --mode onnx`
 * tensorrt: `python webui.py --mode trt`
 * The default port is 9870. Open the webpage: `http://localhost:9870/`
-
 
 Hotkeys for webcam mode (when render window is on focus)\
 Q > exit\
@@ -118,8 +123,14 @@ C > CropDrivingVideo\
 K,L > AdjustSourceScale\
 N,M > AdjustDriverScale
 
+## License
+
+- **Code**: This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- **Models**: Any machine learning models used in this project are subject to their respective licenses. Please refer to the original model sources for license information. We do not take responsibility for model license compliance.
+
 
 **Changelog**
+- [x] **2025/06/29:** LivePortrait animal v1.1 onnx models are available. Download from [this](https://huggingface.co/warmshao/FasterLivePortrait/tree/main/liveportrait_animal_onnx_v1.1).
 - [x] **2024/12/22:** Add API Deployment `python api.py`, For more information, please refer to the [tutorial](assets/docs/API.md).
 - [x] **2024/12/21:** Added support for [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), enabling text-driven video or image generation.
   - Updated code: `git pull origin master` and install the latest Python dependencies `pip install requirements.txt`, or simply double-click `update.bat` on Windows.

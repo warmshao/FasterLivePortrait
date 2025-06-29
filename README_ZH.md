@@ -107,7 +107,6 @@
 * tensorrt: `python webui.py --mode trt`
 * 默认端口在9870，打开网页：`http://localhost:9870/`
 
-
 Hotkeys for webcam mode (when render window is on focus)\
 Q > exit\
 S > Stitching\
@@ -117,8 +116,14 @@ C > CropDrivingVideo\
 K,L > AdjustSourceScale\
 N,M > AdjustDriverScale
 
+## 许可证
+
+- **代码**: 本项目采用 MIT 许可证 - 详细信息请查看 [LICENSE](LICENSE) 文件。
+- **模型**: 本项目中使用的任何机器学习模型均遵循其各自的许可证。请参考原始模型来源获取许可证信息。我们不承担模型许可证合规性的责任。
+
 
 **日志**
+- [x] **2025/06/29:** [LivePortrait animal v1.1 onnx模型](https://huggingface.co/warmshao/FasterLivePortrait/tree/main/liveportrait_animal_onnx_v1.1)。
 - [x] **2024/12/22:** 增加api部署`python api.py`, 其他参考[教程](assets/docs/API_ZH.md)使用。
 - [x] **2024/12/21:** 增加[Kokoro-82M](hhttps://huggingface.co/hexgrad/Kokoro-82M)的支持，可以用文本驱动视频或图片。
   - 更新代码, `git pull origin master`并安装最新的python依赖 `pip install requirements.txt`， 或者 windows下直接双击 `update.bat`. 
