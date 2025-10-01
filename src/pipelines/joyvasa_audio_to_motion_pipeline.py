@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 # @Time    : 2024/12/15
 # @Author  : wenshao
 # @Email   : wenshaoguo1026@gmail.com
@@ -24,7 +24,7 @@ from ..utils import utils
 
 class JoyVASAAudio2MotionPipeline:
     """
-    JoyVASA 声音生成LivePortrait Motion
+    JoyVASA å£°éŸ³ç”ŸæˆLivePortrait Motion
     """
 
     def __init__(self, **kwargs):
@@ -36,7 +36,7 @@ class JoyVASAAudio2MotionPipeline:
         motion_model_path = kwargs.get("motion_model_path", "")
         audio_model_path = kwargs.get("audio_model_path", "")
         motion_template_path = kwargs.get("motion_template_path", "")
-        model_data = torch.load(motion_model_path, map_location="cpu")
+        model_data = torch.load(motion_model_path, map_location="cpu", weights_only=False)
         model_args = NullableArgs(model_data['args'])
         model = DitTalkingHead(motion_feat_dim=model_args.motion_feat_dim,
                                n_motions=model_args.n_motions,
@@ -171,3 +171,4 @@ class JoyVASAAudio2MotionPipeline:
         tgt_motion = {'n_frames': motion_coef.shape[0], 'output_fps': self.fps, 'motion': motion_list, 'c_eyes_lst': [],
                       'c_lip_lst': []}
         return tgt_motion
+

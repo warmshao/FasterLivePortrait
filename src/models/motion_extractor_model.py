@@ -46,7 +46,7 @@ class MotionExtractorModel(BaseModel):
 
     def output_process(self, *data):
         if self.predict_type == "trt":
-            kp, pitch, yaw, roll, t, exp, scale = data
+            pitch, yaw, roll, t, exp, scale, kp = data
         else:
             pitch, yaw, roll, t, exp, scale, kp = data
         if self.flag_refine_info:

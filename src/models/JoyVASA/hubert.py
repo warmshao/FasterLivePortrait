@@ -1,4 +1,4 @@
-from transformers import HubertModel
+﻿from transformers import HubertModel
 from transformers.modeling_outputs import BaseModelOutput
 
 from .wav2vec2 import linear_interpolation
@@ -12,7 +12,7 @@ class HubertModel(HubertModel):
 
     def forward(self, input_values, output_fps=25, attention_mask=None, output_attentions=None,
                 output_hidden_states=None, return_dict=None, frame_num=None):
-        self.config.output_attentions = True
+        # self.config.output_attentions = True  # Commented out: conflicts with sdpa attention
 
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
@@ -49,3 +49,4 @@ class HubertModel(HubertModel):
 
         return BaseModelOutput(last_hidden_state=hidden_states, hidden_states=encoder_outputs.hidden_states,
                                attentions=encoder_outputs.attentions, )
+
