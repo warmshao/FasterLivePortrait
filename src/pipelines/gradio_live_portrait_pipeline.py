@@ -303,11 +303,12 @@ class GradioLivePortraitPipeline(FasterLivePortraitPipeline):
         with open(driving_pickle_path, "rb") as fin:
             dri_motion_infos = pickle.load(fin)
 
-        if self.is_source_video:
-            duration, fps = utils.get_video_info(self.source_path)
-            fps = int(fps)
-        else:
-            fps = int(dri_motion_infos["output_fps"])
+        # Always label the render with the driving motion's own output_fps,
+        # not the source video's fps - they can legitimately differ (e.g.
+        # JoyVASA generates motion at its own fixed fps regardless of the
+        # source video's native fps). Using the source's fps here desyncs
+        # audio/motion increasingly over the clip whenever the two differ.
+        fps = int(dri_motion_infos["output_fps"])
 
         motion_lst = dri_motion_infos["motion"]
         c_eyes_lst = dri_motion_infos["c_eyes_lst"] if "c_eyes_lst" in dri_motion_infos else dri_motion_infos[

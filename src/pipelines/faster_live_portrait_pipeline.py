@@ -340,7 +340,11 @@ class FasterLivePortraitPipeline:
             if self.cfg.infer_params.flag_relative_motion:
                 if self.cfg.infer_params.animation_region in ["all", "pose"]:
                     if self.is_source_video:
-                        R_new = self.R_d_smooth.process(R_d_i)
+                        # same relative-rotation formula as the still-image branch below
+                        # (driving's rotation relative to ITS OWN frame-0, composed onto
+                        # source's own rotation), smoothed after composing rather than
+                        # substituting the driving frame's raw rotation directly.
+                        R_new = self.R_d_smooth.process((R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s)
                     else:
                         R_new = (R_d_i @ np.transpose(R_d_0, (0, 2, 1))) @ R_s
                 else:
@@ -350,27 +354,35 @@ class FasterLivePortraitPipeline:
                 x_d_exp_smooth = x_d_i_info['exp'].copy()
                 if self.is_source_video:
                     x_d_exp_smooth = self.exp_smooth.process(x_d_exp_smooth)
+                # relative-motion delta: source's own baseline plus how far the driving
+                # frame has moved from ITS OWN frame-0 baseline. The is_source_video branch
+                # used to substitute x_d_exp_smooth (driving's raw/smoothed absolute value)
+                # directly, discarding x_s_info['exp'] entirely and never subtracting
+                # driving's frame-0 baseline - that desyncs frame 0 (no longer guaranteed
+                # closed-mouth even if source's own rest pose is) and undershoots amplitude
+                # for anyone whose resting exp differs from the driving identity's.
+                x_d_exp_rel = x_s_info['exp'] + (x_d_exp_smooth - x_d_0_info['exp'])
                 if self.cfg.infer_params.animation_region in ["all", "exp"]:
                     if self.is_source_video:
                         for idx in [1, 2, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
-                            delta_new[:, idx, :] = x_d_exp_smooth[:, idx, :]
-                        delta_new[:, 3:5, 1] = x_d_exp_smooth[:, 3:5, 1]
-                        delta_new[:, 5, 2] = x_d_exp_smooth[:, 5, 2]
-                        delta_new[:, 8, 2] = x_d_exp_smooth[:, 8, 2]
-                        delta_new[:, 9, 1:] = x_d_exp_smooth[:, 9, 1:]
+                            delta_new[:, idx, :] = x_d_exp_rel[:, idx, :]
+                        delta_new[:, 3:5, 1] = x_d_exp_rel[:, 3:5, 1]
+                        delta_new[:, 5, 2] = x_d_exp_rel[:, 5, 2]
+                        delta_new[:, 8, 2] = x_d_exp_rel[:, 8, 2]
+                        delta_new[:, 9, 1:] = x_d_exp_rel[:, 9, 1:]
                     else:
                         delta_new = x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp'])
                 elif self.cfg.infer_params.animation_region in ["lip"]:
                     for lip_idx in [6, 12, 14, 17, 19, 20]:
                         if self.is_source_video:
-                            delta_new[:, lip_idx, :] = x_d_exp_smooth[:, lip_idx, :]
+                            delta_new[:, lip_idx, :] = x_d_exp_rel[:, lip_idx, :]
                         else:
                             delta_new[:, lip_idx, :] = (x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp']))[:,
                                                        lip_idx, :]
                 elif self.cfg.infer_params.animation_region in ["eyes"]:
                     for eyes_idx in [11, 13, 15, 16, 18]:
                         if self.is_source_video:
-                            delta_new[:, eyes_idx, :] = x_d_exp_smooth[:, eyes_idx, :]
+                            delta_new[:, eyes_idx, :] = x_d_exp_rel[:, eyes_idx, :]
                         else:
                             delta_new[:, eyes_idx, :] = (x_s_info['exp'] + (x_d_i_info['exp'] - x_d_0_info['exp']))[:,
                                                         eyes_idx, :]
